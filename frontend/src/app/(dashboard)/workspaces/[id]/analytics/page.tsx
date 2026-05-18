@@ -14,6 +14,8 @@ import {
   Database,
   TrendingUp,
   Activity,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
