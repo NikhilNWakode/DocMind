@@ -77,7 +77,21 @@ class Settings(BaseSettings):
     rate_limit_chat_per_minute: int = 10
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: str = '["http://localhost:3000"]'
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Parse CORS origins from string (JSON array or comma-separated)."""
+        import json
+        value = self.cors_origins.strip()
+        if not value:
+            return ["http://localhost:3000"]
+        if value.startswith("["):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return ["http://localhost:3000"]
+        return [o.strip() for o in value.split(",")]
 
     # Upload
     max_upload_size_mb: int = 50
