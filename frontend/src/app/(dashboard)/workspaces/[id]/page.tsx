@@ -190,6 +190,8 @@ export default function WorkspaceDetailPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
+      >
+      <div
         {...getRootProps()}
         className={`relative border-2 border-dashed rounded-2xl p-8 md:p-10 text-center cursor-pointer transition-all duration-300 mb-8 overflow-hidden ${
           isDragActive
@@ -235,6 +237,7 @@ export default function WorkspaceDetailPage() {
             </div>
           )}
         </div>
+      </div>
       </motion.div>
 
       {/* Documents list */}
