@@ -21,6 +21,17 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Client-side validation
+    if (!fullName.trim()) {
+      setError("Full name is required");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+
     setLoading(true);
     try {
       await register(email, password, fullName);
@@ -143,7 +154,8 @@ export default function RegisterPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Min 8 characters"
+                minLength={8}
                 required
               />
             </div>

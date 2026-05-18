@@ -59,7 +59,19 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: "Request failed" }));
-      throw new ApiError(response.status, error.message || error.error || "Unknown error");
+      // FastAPI validation errors return {detail: [{msg, loc, type}]}
+      let message = "Unknown error";
+      if (error.detail && Array.isArray(error.detail)) {
+        message = error.detail
+          .map((d: { msg: string; loc?: string[] }) => {
+            const field = d.loc?.slice(-1)[0] || "";
+            return field ? `${field}: ${d.msg}` : d.msg;
+          })
+          .join(", ");
+      } else {
+        message = error.detail || error.message || error.error || "Unknown error";
+      }
+      throw new ApiError(response.status, message);
     }
 
     if (response.status === 204) {
