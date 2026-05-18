@@ -1,4 +1,4 @@
-# Render Blueprint — deploys all services from one file
+# Render Blueprint — backend services only (frontend on Vercel)
 # https://render.com/docs/blueprint-spec
 
 services:
@@ -36,24 +36,11 @@ services:
       - key: JWT_SECRET_KEY
         generateValue: true
       - key: CORS_ORIGINS
-        value: '["https://docmind-frontend.onrender.com"]'
+        sync: false
       - key: APP_ENV
         value: production
       - key: DEBUG
         value: "false"
-
-  # Next.js Frontend
-  - type: web
-    name: docmind-frontend
-    runtime: node
-    region: oregon
-    plan: free
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    envVars:
-      - key: NEXT_PUBLIC_API_URL
-        value: https://docmind-backend.onrender.com
 
   # Redis
   - type: redis
