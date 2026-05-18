@@ -37,8 +37,15 @@ export const useAuthStore = create<AuthStore>((set) => ({
         set({ isLoading: false });
         return;
       }
-      const user = await api.getMe();
-      set({ user, isAuthenticated: true, isLoading: false });
+      // Add timeout for slow cold starts (Render free tier)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      try {
+        const user = await api.getMe();
+        set({ user, isAuthenticated: true, isLoading: false });
+      } finally {
+        clearTimeout(timeout);
+      }
     } catch {
       api.clearTokens();
       set({ user: null, isAuthenticated: false, isLoading: false });
