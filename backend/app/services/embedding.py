@@ -33,7 +33,7 @@ class EmbeddingService:
 
     def __init__(self):
         self.dimension = settings.embedding_dimension
-        self._api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{settings.embedding_model}"
+        self._api_url = f"https://api-inference.huggingface.co/models/sentence-transformers/{settings.embedding_model}"
 
     def embed_texts(self, texts: list[str]) -> list[np.ndarray]:
         """Generate embeddings for a list of texts."""
