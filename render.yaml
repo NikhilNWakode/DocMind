@@ -5,13 +5,12 @@ services:
   # FastAPI Backend
   - type: web
     name: docmind-backend
-    runtime: python
+    runtime: docker
     region: oregon
     plan: free
-    buildCommand: |
-      cd backend && pip install .
-    startCommand: |
-      cd backend && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -49,8 +48,9 @@ services:
     runtime: node
     region: oregon
     plan: free
-    buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && npm start
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: https://docmind-backend.onrender.com

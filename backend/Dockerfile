@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS base
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -17,31 +17,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Development target
-FROM base AS development
-
-COPY pyproject.toml .
-# Install CPU-only PyTorch first (200MB vs 3GB with CUDA)
-RUN pip install --timeout 300 torch --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --timeout 300 --retries 5 -e ".[dev]"
-
-COPY . .
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-
-# Production target
-FROM base AS production
-
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
+# Install Python dependencies
 COPY pyproject.toml .
 RUN pip install --timeout 300 torch --index-url https://download.pytorch.org/whl/cpu \
     && pip install --timeout 300 --retries 5 .
 
+# Copy application code
 COPY . .
 
-RUN mkdir -p uploads && chown -R appuser:appuser /app
-USER appuser
+RUN mkdir -p uploads
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+
+# Render sets $PORT; fallback to 8000 for local Docker
+CMD sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
