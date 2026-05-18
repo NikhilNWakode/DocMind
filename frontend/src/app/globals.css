@@ -1,20 +1,22 @@
 @import "tailwindcss";
 
 @theme {
-  /* Soft dark mode palette — inspired by Vercel/Linear */
-  --color-background: #09090B;
-  --color-surface: #111113;
-  --color-surface-hover: #1A1A1D;
-  --color-border: #27272A;
-  --color-border-light: #3F3F46;
-  --color-text-primary: #FAFAFA;
-  --color-text-secondary: #A1A1AA;
-  --color-text-muted: #71717A;
-  --color-accent: #3B82F6;
-  --color-accent-hover: #2563EB;
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-error: #EF4444;
+  /* Premium dark palette — warm, calm, Mitwa-inspired */
+  --color-background: #050506;
+  --color-surface: #0C0C0E;
+  --color-surface-hover: #141416;
+  --color-surface-elevated: #1A1A1E;
+  --color-border: #1E1E22;
+  --color-border-light: #2A2A30;
+  --color-text-primary: #F0EDE8;
+  --color-text-secondary: #8A8A8E;
+  --color-text-muted: #555558;
+  --color-accent: #8B7CF6;
+  --color-accent-hover: #7C6AE8;
+  --color-accent-glow: rgba(139, 124, 246, 0.15);
+  --color-success: #5DE4A5;
+  --color-warning: #F5C842;
+  --color-error: #F07068;
 }
 
 * {
@@ -29,10 +31,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar — minimal, Vercel-style */
+/* Scrollbar — invisible until hover */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -40,21 +42,20 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border-light);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 html {
   scroll-behavior: smooth;
 }
 
-/* Selection */
 ::selection {
-  background: rgba(59, 130, 246, 0.3);
+  background: rgba(139, 124, 246, 0.25);
   color: var(--color-text-primary);
 }
 
@@ -63,11 +64,12 @@ html {
   font-weight: 600;
   margin-top: 1em;
   margin-bottom: 0.5em;
+  letter-spacing: -0.01em;
 }
 
 .prose-chat p {
   margin-bottom: 0.75em;
-  line-height: 1.75;
+  line-height: 1.8;
 }
 
 .prose-chat ul, .prose-chat ol {
@@ -82,7 +84,7 @@ html {
 .prose-chat code {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 0.15em 0.4em;
   font-size: 0.875em;
   font-family: "JetBrains Mono", "Fira Code", monospace;
@@ -91,8 +93,8 @@ html {
 .prose-chat pre {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 1em;
+  border-radius: 14px;
+  padding: 1.25em;
   overflow-x: auto;
   margin-bottom: 1em;
 }
@@ -104,7 +106,7 @@ html {
 }
 
 .prose-chat blockquote {
-  border-left: 3px solid var(--color-accent);
+  border-left: 2px solid var(--color-accent);
   padding-left: 1em;
   color: var(--color-text-secondary);
   margin-bottom: 0.75em;
@@ -115,7 +117,7 @@ html {
   border-collapse: collapse;
 }
 
-/* Streaming cursor animation */
+/* Streaming cursor */
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
@@ -129,7 +131,7 @@ html {
   font-size: 0.9em;
 }
 
-/* Skeleton loading animation */
+/* Skeleton loading */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
@@ -143,19 +145,19 @@ html {
     var(--color-surface) 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: 8px;
+  animation: shimmer 2s ease-in-out infinite;
+  border-radius: 10px;
 }
 
-/* Focus ring utility */
+/* Focus ring */
 .focus-ring {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 2px rgba(139, 124, 246, 0.3);
 }
 
-/* Gradient text utility */
+/* Gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, var(--color-accent), #818CF8);
+  background: linear-gradient(135deg, #8B7CF6, #D4A5FF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -163,16 +165,26 @@ html {
 
 /* Glass morphism */
 .glass {
-  background: rgba(17, 17, 19, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(12, 12, 14, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
-/* Subtle depth layers for dark mode */
-.depth-1 { background: var(--color-surface); }
-.depth-2 { background: var(--color-surface-hover); }
-.depth-3 { background: #222225; }
+/* Subtle glow */
+.glow-accent {
+  box-shadow: 0 0 40px -10px rgba(139, 124, 246, 0.25);
+}
 
-/* KaTeX math rendering */
+/* Noise overlay for texture */
+.noise::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* KaTeX */
 .katex { font-size: 1em; }
 .katex-display { overflow-x: auto; padding: 0.5em 0; }

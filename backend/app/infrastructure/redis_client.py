@@ -2,11 +2,13 @@
 
 from collections.abc import AsyncGenerator
 
+import structlog
 import redis.asyncio as aioredis
 
 from app.config import get_settings
 
 settings = get_settings()
+logger = structlog.get_logger()
 
 # Module-level connection pool (shared across all requests)
 _redis_pool: aioredis.Redis | None = None
@@ -21,6 +23,7 @@ def get_redis_pool() -> aioredis.Redis:
             decode_responses=True,
             max_connections=20,
         )
+        logger.info("redis_pool_created", url=settings.redis_url[:30])
     return _redis_pool
 
 

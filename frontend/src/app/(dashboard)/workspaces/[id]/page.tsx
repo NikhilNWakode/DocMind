@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDropzone } from "react-dropzone";
 import { api, Document, Workspace, IngestionProgress } from "@/lib/api";
-import { formatFileSize, formatDate, getFileTypeIcon, getStatusColor } from "@/lib/utils";
+import { formatFileSize, formatDate, getFileTypeIcon } from "@/lib/utils";
 import { ProcessingPipeline } from "@/components/documents/processing-pipeline";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,9 +19,6 @@ import {
   Loader2,
   CloudUpload,
   Sparkles,
-  BarChart3,
-  File,
-  Eye,
 } from "lucide-react";
 
 interface DocumentWithProgress extends Document {
@@ -58,7 +55,7 @@ export default function WorkspaceDetailPage() {
     loadData();
   }, [workspaceId]);
 
-  // Poll for processing documents status
+  // Poll for processing documents
   useEffect(() => {
     const processingDocs = documents.filter(
       (d) => d.status === "processing" || d.status === "pending"
@@ -77,7 +74,7 @@ export default function WorkspaceDetailPage() {
             )
           );
         } catch {
-          // ignore polling errors
+          // ignore
         }
       }
     }, 2000);
@@ -135,8 +132,8 @@ export default function WorkspaceDetailPage() {
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-6 py-10">
-        <div className="skeleton h-8 w-48 mb-4 rounded" />
-        <div className="skeleton h-4 w-72 mb-8 rounded" />
+        <div className="skeleton h-8 w-48 mb-4 rounded-lg" />
+        <div className="skeleton h-4 w-72 mb-8 rounded-lg" />
         <div className="skeleton h-44 rounded-2xl mb-6" />
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
@@ -148,19 +145,19 @@ export default function WorkspaceDetailPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-10">
+    <div className="max-w-5xl mx-auto px-4 md:px-6 py-10 md:py-14">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8"
+        className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-10"
       >
         <div>
-          <h1 className="text-2xl font-bold">{workspace?.name}</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">{workspace?.name}</h1>
           {workspace?.description && (
-            <p className="text-text-secondary mt-1">{workspace.description}</p>
+            <p className="text-text-muted mt-1.5 text-[15px]">{workspace.description}</p>
           )}
-          <div className="flex items-center gap-3 mt-2">
+          <div className="flex items-center gap-3 mt-3">
             <Badge variant="default">
               <FileText className="w-3 h-3" />
               {documents.length} documents
@@ -191,59 +188,53 @@ export default function WorkspaceDetailPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-      <div
-        {...getRootProps()}
-        className={`relative border-2 border-dashed rounded-2xl p-8 md:p-10 text-center cursor-pointer transition-all duration-300 mb-8 overflow-hidden ${
-          isDragActive
-            ? "border-accent bg-accent/5 scale-[1.01]"
-            : "border-border hover:border-accent/40 hover:bg-surface/50"
-        }`}
-      >
-        <input {...getInputProps()} />
+        <div
+          {...getRootProps()}
+          className={`relative border border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-400 mb-10 overflow-hidden ${
+            isDragActive
+              ? "border-accent/40 bg-accent/[0.03] scale-[1.005]"
+              : "border-white/[0.06] hover:border-accent/20 hover:bg-white/[0.01]"
+          }`}
+        >
+          <input {...getInputProps()} />
 
-        {/* Background decoration */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-20 -right-20 w-40 h-40 bg-accent/5 rounded-full blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl" />
+          <div className="relative">
+            {uploading ? (
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-12 h-12 bg-accent/[0.08] rounded-2xl flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 text-accent animate-spin" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{uploadProgress}</p>
+                  <p className="text-xs text-text-muted mt-1">Processing your document...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4">
+                <motion.div
+                  animate={isDragActive ? { scale: 1.05, y: -3 } : { scale: 1, y: 0 }}
+                  className="w-12 h-12 bg-white/[0.03] border border-white/[0.06] rounded-2xl flex items-center justify-center"
+                >
+                  <CloudUpload className="w-6 h-6 text-text-muted" />
+                </motion.div>
+                <div>
+                  <p className="text-sm font-medium">
+                    {isDragActive ? "Drop files here" : "Drag & drop documents"}
+                  </p>
+                  <p className="text-xs text-text-muted mt-1">
+                    PDF, DOCX, TXT, PNG, JPG up to 50MB
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-
-        <div className="relative">
-          {uploading ? (
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center">
-                <Loader2 className="w-7 h-7 text-accent animate-spin" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">{uploadProgress}</p>
-                <p className="text-xs text-text-muted mt-1">Processing your document...</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-4">
-              <motion.div
-                animate={isDragActive ? { scale: 1.1, y: -4 } : { scale: 1, y: 0 }}
-                className="w-14 h-14 bg-surface border border-border rounded-2xl flex items-center justify-center"
-              >
-                <CloudUpload className="w-7 h-7 text-text-muted" />
-              </motion.div>
-              <div>
-                <p className="text-sm font-medium">
-                  {isDragActive ? "Drop files here" : "Drag & drop documents"}
-                </p>
-                <p className="text-xs text-text-muted mt-1">
-                  PDF, DOCX, TXT, PNG, JPG up to 50MB
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
       </motion.div>
 
       {/* Documents list */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wider">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xs font-semibold text-text-muted uppercase tracking-widest">
             Documents
           </h2>
         </div>
@@ -252,10 +243,10 @@ export default function WorkspaceDetailPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-16 bg-surface/30 rounded-2xl border border-border/50"
+            className="text-center py-20 rounded-2xl border border-white/[0.04]"
           >
-            <FileText className="w-12 h-12 text-text-muted mx-auto mb-3" />
-            <p className="text-text-secondary text-sm">
+            <FileText className="w-10 h-10 text-text-muted/30 mx-auto mb-4" />
+            <p className="text-text-muted text-sm">
               No documents yet. Upload your first document above.
             </p>
           </motion.div>
@@ -269,22 +260,21 @@ export default function WorkspaceDetailPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ delay: i * 0.03 }}
-                  className="flex items-center justify-between p-4 bg-surface border border-border rounded-xl hover:border-border-light transition-all group"
+                  className="flex items-center justify-between p-4 bg-white/[0.01] border border-white/[0.04] rounded-xl hover:border-white/[0.08] hover:bg-white/[0.02] transition-all duration-300 group"
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-10 h-10 bg-surface-hover rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 bg-white/[0.03] rounded-lg flex items-center justify-center flex-shrink-0">
                       <span className="text-lg">{getFileTypeIcon(doc.file_type)}</span>
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{doc.title}</p>
-                      <div className="flex items-center gap-3 text-xs text-text-muted mt-0.5">
+                      <div className="flex items-center gap-3 text-[11px] text-text-muted mt-1">
                         <span>{formatFileSize(doc.file_size)}</span>
                         {doc.page_count && <span>{doc.page_count} pages</span>}
                         {doc.chunk_count > 0 && <span>{doc.chunk_count} chunks</span>}
                         <span>{formatDate(doc.created_at)}</span>
                       </div>
 
-                      {/* Processing pipeline for active documents */}
                       {(doc.status === "processing" || doc.status === "pending") && doc.progress && (
                         <div className="mt-3 max-w-md">
                           <ProcessingPipeline
@@ -298,7 +288,6 @@ export default function WorkspaceDetailPage() {
                   </div>
 
                   <div className="flex items-center gap-2 ml-3">
-                    {/* Status badge */}
                     <Badge
                       variant={
                         doc.status === "indexed"
@@ -317,15 +306,14 @@ export default function WorkspaceDetailPage() {
                       {doc.status}
                     </Badge>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       {doc.status === "indexed" && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleSummarize(doc.id);
                           }}
-                          className="p-1.5 text-text-muted hover:text-accent rounded-md hover:bg-accent/10 transition-all"
+                          className="p-1.5 text-text-muted hover:text-accent rounded-lg hover:bg-accent/[0.08] transition-all"
                           title="Generate AI summary"
                         >
                           <Sparkles className="w-4 h-4" />
@@ -336,7 +324,7 @@ export default function WorkspaceDetailPage() {
                           e.stopPropagation();
                           handleDelete(doc.id);
                         }}
-                        className="p-1.5 text-text-muted hover:text-error rounded-md hover:bg-error/10 transition-all"
+                        className="p-1.5 text-text-muted hover:text-error rounded-lg hover:bg-error/[0.08] transition-all"
                         title="Delete document"
                       >
                         <Trash2 className="w-4 h-4" />

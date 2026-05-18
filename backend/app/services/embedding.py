@@ -1,6 +1,7 @@
-"""Embedding service — uses local sentence-transformers or HuggingFace API fallback."""
+"""Embedding service — uses HuggingFace API in production, local model in development."""
 
 import os
+import time
 
 import httpx
 import numpy as np
@@ -65,36 +66,62 @@ class EmbeddingService:
         return self.dimension
 
     def _embed_via_api(self, texts: list[str]) -> list[np.ndarray]:
-        """Use HuggingFace Inference API for embeddings (free, no key needed)."""
+        """Use HuggingFace Inference API for embeddings."""
         headers = {"Content-Type": "application/json"}
         hf_token = os.getenv("HF_TOKEN", "")
         if hf_token:
             headers["Authorization"] = f"Bearer {hf_token}"
 
-        # HF API has payload limits, batch in chunks of 32
         all_embeddings = []
         for i in range(0, len(texts), 32):
             batch = texts[i:i + 32]
-            try:
-                response = httpx.post(
-                    self._api_url,
-                    json={"inputs": batch, "options": {"wait_for_model": True}},
-                    headers=headers,
-                    timeout=60.0,
-                )
-                response.raise_for_status()
-                data = response.json()
+            last_error = None
 
-                for emb in data:
-                    arr = np.array(emb, dtype=np.float32)
-                    # Normalize
-                    norm = np.linalg.norm(arr)
-                    if norm > 0:
-                        arr = arr / norm
-                    all_embeddings.append(arr)
+            for attempt in range(3):
+                try:
+                    response = httpx.post(
+                        self._api_url,
+                        json={"inputs": batch, "options": {"wait_for_model": True}},
+                        headers=headers,
+                        timeout=120.0,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
 
-            except Exception as e:
-                logger.error("embedding_api_failed", error=str(e), batch_size=len(batch))
-                raise RuntimeError(f"Embedding API failed: {e}")
+                    for emb in data:
+                        arr = np.array(emb, dtype=np.float32)
+                        norm = np.linalg.norm(arr)
+                        if norm > 0:
+                            arr = arr / norm
+                        all_embeddings.append(arr)
+
+                    last_error = None
+                    break
+
+                except httpx.HTTPStatusError as e:
+                    last_error = e
+                    status = e.response.status_code
+                    body = e.response.text[:200]
+                    logger.warning(
+                        "embedding_api_http_error",
+                        attempt=attempt + 1,
+                        status=status,
+                        body=body,
+                    )
+                    # 503 = model loading, retry
+                    if status in (503, 429):
+                        time.sleep(3 * (attempt + 1))
+                        continue
+                    raise RuntimeError(f"Embedding API failed (HTTP {status}): {body}")
+
+                except Exception as e:
+                    last_error = e
+                    logger.warning("embedding_api_error", attempt=attempt + 1, error=str(e)[:100])
+                    if attempt < 2:
+                        time.sleep(2 * (attempt + 1))
+                        continue
+
+            if last_error is not None:
+                raise RuntimeError(f"Embedding API failed after 3 attempts: {last_error}")
 
         return all_embeddings

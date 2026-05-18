@@ -22,7 +22,6 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
 
-    // Client-side validation
     if (!fullName.trim()) {
       setError("Full name is required");
       return;
@@ -43,77 +42,96 @@ export default function RegisterPage() {
     }
   };
 
+  const features = [
+    "Upload PDFs, DOCX, TXT, and images",
+    "Ask questions in natural language",
+    "Get cited answers with source references",
+    "Semantic search across all documents",
+    "Real-time document processing",
+  ];
+
   return (
     <div className="min-h-screen flex">
-      {/* Left side - Value props */}
-      <div className="hidden lg:flex lg:w-1/2 bg-surface/50 items-center justify-center p-12 relative overflow-hidden">
+      {/* Left side — value props */}
+      <div className="hidden lg:flex lg:w-[45%] items-center justify-center p-16 relative overflow-hidden">
+        {/* Background */}
+        <div className="absolute inset-0 bg-surface/40" />
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[100px]" />
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-accent/[0.04] rounded-full blur-[120px]" />
         </div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.7 }}
           className="relative max-w-md"
         >
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20">
-              <Sparkles className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-2.5 mb-10">
+            <div className="w-9 h-9 bg-gradient-to-br from-accent to-purple-400 rounded-xl flex items-center justify-center shadow-lg shadow-accent/10">
+              <Sparkles className="w-4.5 h-4.5 text-white" />
             </div>
-            <h1 className="text-2xl font-bold">DocMind</h1>
+            <span className="font-semibold text-lg tracking-tight">DocMind</span>
           </div>
 
-          <h2 className="text-3xl font-bold mb-6 leading-tight">
-            Start building your
+          <h2 className="text-3xl font-bold mb-3 leading-tight tracking-tight">
+            Build your
             <br />
-            <span className="bg-gradient-to-r from-accent to-purple-400 bg-clip-text text-transparent">
-              AI knowledge base
-            </span>
+            <span className="gradient-text">AI knowledge base</span>
           </h2>
 
+          <p className="text-text-secondary text-[15px] mb-10 leading-relaxed">
+            Transform documents into an intelligent, searchable knowledge base powered by AI.
+          </p>
+
           <div className="space-y-4">
-            {[
-              "Upload PDFs, DOCX, TXT, and images",
-              "Ask questions in natural language",
-              "Get cited answers with source references",
-              "Hybrid search with neural reranking",
-              "Real-time processing with progress tracking",
-            ].map((feature) => (
-              <div key={feature} className="flex items-center gap-3">
-                <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
+            {features.map((feature, i) => (
+              <motion.div
+                key={feature}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 + i * 0.08 }}
+                className="flex items-center gap-3"
+              >
+                <div className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-3 h-3 text-success" />
+                </div>
                 <span className="text-sm text-text-secondary">{feature}</span>
-              </div>
+              </motion.div>
             ))}
           </div>
         </motion.div>
       </div>
 
-      {/* Right side - Register form */}
-      <div className="flex-1 flex items-center justify-center p-6 md:p-8">
+      {/* Right side — register form */}
+      <div className="flex-1 flex items-center justify-center p-6 md:p-8 relative">
+        <div className="absolute inset-0 pointer-events-none lg:hidden">
+          <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-[500px] h-[400px] bg-accent/[0.03] rounded-full blur-[120px]" />
+        </div>
+
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
-          className="w-full max-w-sm"
+          initial={{ opacity: 0, y: 16, filter: "blur(6px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          transition={{ duration: 0.7, ease: [0.25, 0.1, 0.25, 1] }}
+          className="w-full max-w-[380px] relative"
         >
-          <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
+          {/* Mobile logo */}
+          <div className="lg:hidden flex items-center gap-2.5 mb-12">
+            <div className="w-9 h-9 bg-gradient-to-br from-accent to-purple-400 rounded-xl flex items-center justify-center">
+              <Sparkles className="w-4.5 h-4.5 text-white" />
             </div>
-            <h1 className="text-xl font-bold">DocMind</h1>
+            <span className="font-semibold text-lg tracking-tight">DocMind</span>
           </div>
 
-          <h2 className="text-2xl font-bold mb-2">Create account</h2>
-          <p className="text-text-secondary text-sm mb-8">
+          <h1 className="text-[28px] font-bold tracking-tight mb-2">Create account</h1>
+          <p className="text-text-secondary text-[15px] mb-9">
             Get started with your AI document workspace
           </p>
 
           {error && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-error/10 border border-error/20 text-error rounded-xl px-4 py-3 mb-6 text-sm"
+              className="bg-error/[0.06] border border-error/[0.12] text-error rounded-xl px-4 py-3 mb-7 text-sm"
             >
               {error}
             </motion.div>
@@ -121,8 +139,8 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">
-                Full Name
+              <label className="block text-[13px] font-medium text-text-secondary mb-2">
+                Full name
               </label>
               <Input
                 type="text"
@@ -134,8 +152,8 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">
-                Email
+              <label className="block text-[13px] font-medium text-text-secondary mb-2">
+                Email address
               </label>
               <Input
                 type="email"
@@ -147,7 +165,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">
+              <label className="block text-[13px] font-medium text-text-secondary mb-2">
                 Password
               </label>
               <Input
@@ -160,13 +178,13 @@ export default function RegisterPage() {
               />
             </div>
 
-            <Button type="submit" loading={loading} size="lg" className="w-full">
+            <Button type="submit" loading={loading} size="lg" className="w-full mt-2">
               Create account
               <ArrowRight className="w-4 h-4" />
             </Button>
           </form>
 
-          <p className="text-center text-text-secondary text-sm mt-6">
+          <p className="text-center text-text-muted text-sm mt-8">
             Already have an account?{" "}
             <Link
               href="/login"

@@ -1,4 +1,4 @@
-"""Chat API routes with SSE streaming, semantic caching, and hybrid retrieval."""
+"""Chat API routes with SSE streaming."""
 
 import json
 import uuid
@@ -30,29 +30,13 @@ async def stream_chat(
     vector_store: VectorStoreService = Depends(get_vector_store_service),
     redis: Redis = Depends(get_redis),
 ):
-    """Stream AI response using Server-Sent Events (SSE).
-
-    IMPORTANT: StreamingResponse runs AFTER FastAPI dependency cleanup.
-    The DB session from Depends(get_db) would be closed by the time streaming starts.
-    So we create a dedicated session inside the stream generator.
-
-    Event types:
-    - start: {conversation_id}
-    - token: {content} — individual tokens for streaming display
-    - citations: {citations} — source references
-    - metadata: {model, latency_ms, chunks_used, cache_hit}
-    - cache_hit: response served from semantic cache
-    - done: stream complete
-    - error: {message}
-    """
-    # Capture values we need inside the generator (these are safe — plain data)
+    """Stream AI response using Server-Sent Events (SSE)."""
     user_id = current_user.id
     query = chat_request.query
     workspace_id = chat_request.workspace_id
     conversation_id = chat_request.conversation_id
 
     async def event_stream():
-        # Create a dedicated DB session for the lifetime of the stream
         async with async_session_factory() as session:
             try:
                 chat_service = ChatService(

@@ -20,10 +20,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           className={cn(
-            "w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm text-text-primary placeholder:text-text-muted",
-            "focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all duration-200",
+            "w-full px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-text-primary placeholder:text-text-muted/60",
+            "focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-all duration-300",
             icon && "pl-11",
-            error && "border-error focus:ring-error/50",
+            error && "border-error/30 focus:ring-error/30",
             className
           )}
           {...props}

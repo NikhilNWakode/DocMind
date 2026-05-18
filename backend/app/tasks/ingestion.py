@@ -1,11 +1,11 @@
 """Document ingestion background tasks (FastAPI BackgroundTasks)."""
 
 import json
+import time
 import uuid
 from pathlib import Path
 
 import structlog
-from redis import Redis as SyncRedis
 
 from app.config import get_settings
 from app.infrastructure.database import async_session_factory
@@ -21,7 +21,7 @@ logger = structlog.get_logger()
 settings = get_settings()
 
 
-def _publish_progress(redis_client: SyncRedis, document_id: str, stage: str, progress: int, message: str = "") -> None:
+def _publish_progress(redis_client, document_id: str, stage: str, progress: int, message: str = "") -> None:
     """Publish ingestion progress via Redis pub/sub for SSE consumption."""
     event = json.dumps({
         "document_id": document_id,
@@ -30,23 +30,12 @@ def _publish_progress(redis_client: SyncRedis, document_id: str, stage: str, pro
         "message": message,
     })
     redis_client.publish(f"ingestion:{document_id}", event)
-    redis_client.setex(
-        f"ingestion_progress:{document_id}",
-        300,
-        event,
-    )
+    redis_client.setex(f"ingestion_progress:{document_id}", 300, event)
 
 
 async def process_document(document_id: str) -> dict:
-    """Full ingestion pipeline — runs as a FastAPI background task.
-
-    Stages:
-    1. Extract text (20%)
-    2. Chunk text (40%)
-    3. Generate embeddings (60%)
-    4. Index in Qdrant (80%)
-    5. Save to database (100%)
-    """
+    """Full ingestion pipeline — runs as a FastAPI background task."""
+    from redis import Redis as SyncRedis
     doc_uuid = uuid.UUID(document_id)
     redis_client = SyncRedis.from_url(settings.redis_url, decode_responses=True)
 
@@ -57,10 +46,10 @@ async def process_document(document_id: str) -> dict:
         logger.error("ingestion_failed", document_id=document_id, error=str(exc))
         _publish_progress(redis_client, document_id, "failed", 0, str(exc)[:200])
         await _mark_failed(doc_uuid, str(exc)[:500])
-        raise
+        return {"status": "failed", "error": str(exc)[:200]}
 
 
-async def _process_document_async(document_id: uuid.UUID, redis_client: SyncRedis) -> dict:
+async def _process_document_async(document_id: uuid.UUID, redis_client) -> dict:
     """Async implementation of the ingestion pipeline."""
     doc_id_str = str(document_id)
 
@@ -75,7 +64,7 @@ async def _process_document_async(document_id: uuid.UUID, redis_client: SyncRedi
         await session.commit()
         _publish_progress(redis_client, doc_id_str, "extracting", 10, "Extracting text...")
 
-        # Stage 2: Resolve file path (download from S3 if needed)
+        # Stage 2: Resolve file path
         file_path = doc.file_path
         if file_path.startswith("s3://"):
             try:
@@ -112,11 +101,26 @@ async def _process_document_async(document_id: uuid.UUID, redis_client: SyncRedi
 
         _publish_progress(redis_client, doc_id_str, "chunking", 40, f"Created {len(chunks)} chunks")
 
-        # Stage 5: Generate embeddings
+        # Stage 5: Generate embeddings (with retry)
         _publish_progress(redis_client, doc_id_str, "embedding", 50, "Generating embeddings...")
         embedding_service = EmbeddingService()
         texts = [chunk.content for chunk in chunks]
-        embeddings = embedding_service.embed_texts(texts)
+
+        embeddings = None
+        last_error = None
+        for attempt in range(3):
+            try:
+                embeddings = embedding_service.embed_texts(texts)
+                break
+            except Exception as e:
+                last_error = e
+                logger.warning("embedding_attempt_failed", attempt=attempt + 1, error=str(e)[:100])
+                if attempt < 2:
+                    time.sleep(2 * (attempt + 1))
+
+        if embeddings is None:
+            raise RuntimeError(f"Embedding failed after 3 attempts: {last_error}")
+
         _publish_progress(redis_client, doc_id_str, "embedding", 60, f"Generated {len(embeddings)} embeddings")
 
         # Stage 6: Index in Qdrant

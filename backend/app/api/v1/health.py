@@ -1,4 +1,4 @@
-"""Health check endpoints with full dependency checks."""
+"""Health check endpoints."""
 
 from fastapi import APIRouter, Depends
 from redis.asyncio import Redis
@@ -27,21 +27,18 @@ async def readiness(
     """Readiness probe — are all dependencies available?"""
     checks = {}
 
-    # Check PostgreSQL
     try:
         await db.execute(text("SELECT 1"))
         checks["database"] = "ok"
     except Exception as e:
         checks["database"] = f"error: {str(e)[:100]}"
 
-    # Check Redis
     try:
         await redis.ping()
         checks["redis"] = "ok"
     except Exception as e:
         checks["redis"] = f"error: {str(e)[:100]}"
 
-    # Check Qdrant
     try:
         qdrant.get_collections()
         checks["qdrant"] = "ok"

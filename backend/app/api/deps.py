@@ -20,10 +20,7 @@ async def get_current_user(
     authorization: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Extract and validate user from JWT token.
-
-    Returns 401 for missing/invalid tokens (not 422 for missing header).
-    """
+    """Extract and validate user from JWT token."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
 

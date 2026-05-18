@@ -108,10 +108,13 @@ class DocumentService:
         await self.db.commit()
 
         # Invalidate semantic cache for this workspace (new document = stale answers)
-        if self.redis:
-            from app.services.semantic_cache import SemanticCache
-            cache = SemanticCache(self.redis)
-            await cache.invalidate_workspace(str(workspace_id))
+        if self.redis and settings.enable_semantic_cache:
+            try:
+                from app.services.semantic_cache import SemanticCache
+                cache = SemanticCache(self.redis)
+                await cache.invalidate_workspace(str(workspace_id))
+            except Exception as e:
+                logger.warning("cache_invalidation_failed", error=str(e)[:100])
 
         logger.info(
             "document_uploaded",
@@ -276,10 +279,13 @@ class DocumentService:
                 pass
 
         # Invalidate semantic cache
-        if self.redis:
-            from app.services.semantic_cache import SemanticCache
-            cache = SemanticCache(self.redis)
-            await cache.invalidate_workspace(str(doc.workspace_id))
+        if self.redis and settings.enable_semantic_cache:
+            try:
+                from app.services.semantic_cache import SemanticCache
+                cache = SemanticCache(self.redis)
+                await cache.invalidate_workspace(str(doc.workspace_id))
+            except Exception as e:
+                logger.warning("cache_invalidation_failed", error=str(e)[:100])
 
         # Delete from database (cascades to chunks)
         await self.repo.delete(doc)

@@ -21,15 +21,7 @@ async def stream_ingestion_progress(
     current_user: User = Depends(get_current_user),
     redis: Redis = Depends(get_redis),
 ):
-    """Stream ingestion progress via SSE using Redis pub/sub.
-
-    The background task publishes progress events to a Redis channel.
-    This endpoint subscribes and forwards them as SSE to the frontend.
-
-    Event format:
-    - {stage, progress, message} — progress updates (0-100%)
-    - Complete when progress = 100 or stage = "failed"/"complete"
-    """
+    """Stream ingestion progress via SSE using Redis pub/sub."""
 
     async def progress_stream():
         pubsub = redis.pubsub()
@@ -38,7 +30,6 @@ async def stream_ingestion_progress(
         try:
             await pubsub.subscribe(channel)
 
-            # First, check if there's already a cached progress state
             cached = await redis.get(f"ingestion_progress:{document_id}")
             if cached:
                 yield f"data: {cached}\n\n"
@@ -46,9 +37,8 @@ async def stream_ingestion_progress(
                 if data.get("stage") in ("complete", "failed"):
                     return
 
-            # Listen for live updates
             timeout_count = 0
-            while timeout_count < 120:  # Max 2 minutes of listening
+            while timeout_count < 120:
                 message = await pubsub.get_message(
                     ignore_subscribe_messages=True,
                     timeout=1.0,
@@ -58,7 +48,6 @@ async def stream_ingestion_progress(
                     yield f"data: {message['data']}\n\n"
                     timeout_count = 0
 
-                    # Check if done
                     try:
                         event = json.loads(message["data"])
                         if event.get("stage") in ("complete", "failed"):
@@ -67,7 +56,6 @@ async def stream_ingestion_progress(
                         pass
                 else:
                     timeout_count += 1
-                    # Send keepalive every 5 seconds
                     if timeout_count % 5 == 0:
                         yield f": keepalive\n\n"
 

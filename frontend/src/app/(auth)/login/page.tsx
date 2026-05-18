@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { useAuthStore } from "@/stores/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, ArrowRight, Brain, Layers, Zap } from "lucide-react";
+import { Sparkles, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,131 +32,87 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-surface/50 items-center justify-center p-12 relative overflow-hidden">
-        {/* Background effects */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[100px]" />
-          <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-purple-500/5 rounded-full blur-[80px]" />
+    <div className="min-h-screen flex items-center justify-center px-6 relative overflow-hidden">
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-accent/[0.03] rounded-full blur-[120px]" />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 16, filter: "blur(6px)" }}
+        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+        transition={{ duration: 0.7, ease: [0.25, 0.1, 0.25, 1] }}
+        className="w-full max-w-[380px] relative"
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-2.5 mb-12">
+          <div className="w-9 h-9 bg-gradient-to-br from-accent to-purple-400 rounded-xl flex items-center justify-center shadow-lg shadow-accent/10">
+            <Sparkles className="w-4.5 h-4.5 text-white" />
+          </div>
+          <span className="font-semibold text-lg tracking-tight">DocMind</span>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="relative max-w-md"
-        >
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold">DocMind</h1>
-          </div>
-          <h2 className="text-4xl font-bold mb-4 leading-tight">
-            AI-Powered
-            <br />
-            <span className="bg-gradient-to-r from-accent to-purple-400 bg-clip-text text-transparent">
-              Document Intelligence
-            </span>
-          </h2>
-          <p className="text-text-secondary text-lg leading-relaxed mb-8">
-            Upload documents, ask questions, get instant AI-generated answers
-            with citations. Enterprise-grade RAG pipeline.
-          </p>
+        {/* Header */}
+        <h1 className="text-[28px] font-bold tracking-tight mb-2">Welcome back</h1>
+        <p className="text-text-secondary text-[15px] mb-9">
+          Sign in to continue to your workspace
+        </p>
 
-          {/* Feature pills */}
-          <div className="flex flex-wrap gap-2">
-            {[
-              { icon: <Brain className="w-3.5 h-3.5" />, label: "Hybrid RAG" },
-              { icon: <Layers className="w-3.5 h-3.5" />, label: "Cross-Encoder Reranking" },
-              { icon: <Zap className="w-3.5 h-3.5" />, label: "Semantic Cache" },
-            ].map((pill) => (
-              <span
-                key={pill.label}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border rounded-full text-xs text-text-secondary"
-              >
-                {pill.icon}
-                {pill.label}
-              </span>
-            ))}
-          </div>
-        </motion.div>
-      </div>
+        {/* Error */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-error/[0.06] border border-error/[0.12] text-error rounded-xl px-4 py-3 mb-7 text-sm"
+          >
+            {error}
+          </motion.div>
+        )}
 
-      {/* Right side - Login form */}
-      <div className="flex-1 flex items-center justify-center p-6 md:p-8">
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
-          className="w-full max-w-sm"
-        >
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold">DocMind</h1>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-[13px] font-medium text-text-secondary mb-2">
+              Email address
+            </label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+            />
           </div>
 
-          <h2 className="text-2xl font-bold mb-2">Welcome back</h2>
-          <p className="text-text-secondary text-sm mb-8">Sign in to your account</p>
+          <div>
+            <label className="block text-[13px] font-medium text-text-secondary mb-2">
+              Password
+            </label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              required
+            />
+          </div>
 
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-error/10 border border-error/20 text-error rounded-xl px-4 py-3 mb-6 text-sm"
-            >
-              {error}
-            </motion.div>
-          )}
+          <Button type="submit" loading={loading} size="lg" className="w-full mt-2">
+            Sign in
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </form>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">
-                Email
-              </label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">
-                Password
-              </label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <Button type="submit" loading={loading} size="lg" className="w-full">
-              Sign in
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          </form>
-
-          <p className="text-center text-text-secondary text-sm mt-6">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/register"
-              className="text-accent hover:text-accent-hover font-medium transition-colors"
-            >
-              Create one
-            </Link>
-          </p>
-        </motion.div>
-      </div>
+        <p className="text-center text-text-muted text-sm mt-8">
+          No account yet?{" "}
+          <Link
+            href="/register"
+            className="text-accent hover:text-accent-hover font-medium transition-colors"
+          >
+            Create one
+          </Link>
+        </p>
+      </motion.div>
     </div>
   );
 }

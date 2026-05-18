@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, ChevronDown, ExternalLink, Hash } from "lucide-react";
+import { FileText, ChevronDown, Hash } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Citation } from "@/lib/api";
@@ -19,17 +19,16 @@ function CitationPanel({ citations, onCitationClick }: CitationPanelProps) {
   if (citations.length === 0) return null;
 
   return (
-    <div className="border-t border-border bg-surface/30">
-      {/* Toggle header */}
+    <div className="border-t border-white/[0.04]">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-5 py-3 hover:bg-surface-hover transition-colors"
+        className="w-full flex items-center justify-between px-5 py-3 hover:bg-white/[0.02] transition-colors duration-300"
       >
         <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 bg-accent/10 rounded-md flex items-center justify-center">
-            <FileText className="w-3.5 h-3.5 text-accent" />
+          <div className="w-6 h-6 bg-accent/[0.08] rounded-md flex items-center justify-center">
+            <FileText className="w-3.5 h-3.5 text-accent/70" />
           </div>
-          <span className="text-sm font-medium text-text-primary">
+          <span className="text-sm font-medium text-text-secondary">
             {citations.length} source{citations.length !== 1 ? "s" : ""} cited
           </span>
         </div>
@@ -41,42 +40,39 @@ function CitationPanel({ citations, onCitationClick }: CitationPanelProps) {
         </motion.div>
       </button>
 
-      {/* Citations list */}
       <AnimatePresence>
         {expanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.25 }}
             className="overflow-hidden"
           >
             <div className="px-5 pb-4 space-y-2">
               {citations.map((citation, index) => (
                 <motion.div
                   key={index}
-                  initial={{ opacity: 0, x: -8 }}
+                  initial={{ opacity: 0, x: -6 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
+                  transition={{ delay: index * 0.04 }}
                   onClick={() => {
                     setHighlightedIndex(index);
                     onCitationClick?.(citation);
                   }}
                   className={cn(
-                    "relative p-3.5 rounded-lg border cursor-pointer transition-all duration-200",
+                    "relative p-3.5 rounded-xl border cursor-pointer transition-all duration-300",
                     highlightedIndex === index
-                      ? "border-accent/40 bg-accent/5 shadow-sm shadow-accent/10"
-                      : "border-border hover:border-border-light hover:bg-surface-hover"
+                      ? "border-accent/20 bg-accent/[0.04]"
+                      : "border-white/[0.04] hover:border-white/[0.08] hover:bg-white/[0.02]"
                   )}
                 >
-                  {/* Citation number indicator */}
                   <div className="absolute -left-1 -top-1 w-5 h-5 bg-accent rounded-full flex items-center justify-center">
                     <span className="text-[10px] font-bold text-white">{index + 1}</span>
                   </div>
 
-                  {/* Header */}
                   <div className="flex items-center justify-between mb-2 ml-3">
-                    <span className="text-xs font-semibold text-accent truncate max-w-[60%]">
+                    <span className="text-xs font-semibold text-accent/80 truncate max-w-[60%]">
                       {citation.document_title}
                     </span>
                     <div className="flex items-center gap-2">
@@ -94,8 +90,7 @@ function CitationPanel({ citations, onCitationClick }: CitationPanelProps) {
                     </div>
                   </div>
 
-                  {/* Content preview */}
-                  <p className="text-xs text-text-secondary leading-relaxed line-clamp-3 ml-3">
+                  <p className="text-xs text-text-muted leading-relaxed line-clamp-3 ml-3">
                     {citation.chunk_content}
                   </p>
                 </motion.div>

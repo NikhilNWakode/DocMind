@@ -63,14 +63,14 @@ class Settings(BaseSettings):
     retrieval_top_k: int = 5
     rerank_top_k: int = 3
     hybrid_alpha: float = 0.7  # weight for dense vs sparse (1.0 = pure dense)
-    enable_reranking: bool = True
-    enable_hybrid_search: bool = True
+    enable_reranking: bool = False
+    enable_hybrid_search: bool = False
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     # Semantic Cache
     cache_ttl_seconds: int = 3600
     cache_similarity_threshold: float = 0.95
-    enable_semantic_cache: bool = True
+    enable_semantic_cache: bool = False
 
     # Rate Limiting
     rate_limit_per_minute: int = 30
@@ -99,7 +99,7 @@ class Settings(BaseSettings):
 
     # Conversation Memory
     max_conversation_turns: int = 6
-    enable_conversation_summary: bool = True
+    enable_conversation_summary: bool = False
 
 
 @lru_cache

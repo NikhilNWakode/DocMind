@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useChatStore } from "@/stores/chat";
-import { api, Conversation, Citation } from "@/lib/api";
+import { api, Conversation } from "@/lib/api";
 import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 import { CitationPanel } from "@/components/chat/citation-panel";
 import { TypingIndicator } from "@/components/chat/typing-indicator";
@@ -45,19 +45,16 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load conversations list
   useEffect(() => {
     api.listConversations(workspaceId).then((data) => {
       setConversations(data.conversations);
     });
   }, [workspaceId, conversationId]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-resize textarea
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = "auto";
@@ -100,13 +97,13 @@ export default function ChatPage() {
             initial={{ opacity: 0, width: 0 }}
             animate={{ opacity: 1, width: 260 }}
             exit={{ opacity: 0, width: 0 }}
-            transition={{ duration: 0.2 }}
-            className="border-r border-border bg-surface/50 flex flex-col overflow-hidden"
+            transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+            className="border-r border-white/[0.04] bg-surface/30 flex flex-col overflow-hidden"
           >
-            <div className="p-3 border-b border-border flex-shrink-0">
+            <div className="p-3 border-b border-white/[0.04] flex-shrink-0">
               <button
                 onClick={clearChat}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-surface-hover hover:bg-border/30 rounded-lg transition-all"
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-text-muted hover:text-text-primary bg-white/[0.02] hover:bg-white/[0.04] rounded-lg border border-white/[0.04] hover:border-white/[0.08] transition-all duration-300"
               >
                 <Plus className="w-4 h-4" />
                 New chat
@@ -114,28 +111,28 @@ export default function ChatPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
               {conversations.length === 0 ? (
-                <div className="text-center py-8 px-4">
-                  <MessageSquare className="w-8 h-8 text-text-muted mx-auto mb-2" />
+                <div className="text-center py-10 px-4">
+                  <MessageSquare className="w-7 h-7 text-text-muted/40 mx-auto mb-3" />
                   <p className="text-xs text-text-muted">No conversations yet</p>
                 </div>
               ) : (
                 conversations.map((conv) => (
                   <div
                     key={conv.id}
-                    className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all cursor-pointer ${
+                    className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 cursor-pointer ${
                       conversationId === conv.id
-                        ? "bg-accent/10 text-accent"
-                        : "text-text-secondary hover:text-text-primary hover:bg-surface-hover"
+                        ? "bg-accent/[0.08] text-accent"
+                        : "text-text-muted hover:text-text-primary hover:bg-white/[0.03]"
                     }`}
                     onClick={() => loadConversation(conv.id)}
                   >
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span className="text-sm truncate">{conv.title}</span>
+                      <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 opacity-50" />
+                      <span className="text-[13px] truncate">{conv.title}</span>
                     </div>
                     <button
                       onClick={(e) => handleDeleteConversation(conv.id, e)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error rounded transition-all flex-shrink-0"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error rounded transition-all"
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
@@ -149,12 +146,12 @@ export default function ChatPage() {
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Chat header */}
-        <div className="h-12 border-b border-border flex items-center justify-between px-4 flex-shrink-0 bg-surface/30">
+        {/* Header */}
+        <div className="h-12 border-b border-white/[0.04] flex items-center justify-between px-4 flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowSidebar(!showSidebar)}
-              className="p-1.5 text-text-muted hover:text-text-primary rounded-md hover:bg-surface-hover transition-colors"
+              className="p-1.5 text-text-muted hover:text-text-primary rounded-lg hover:bg-white/[0.04] transition-all"
             >
               {showSidebar ? (
                 <PanelLeftClose className="w-4 h-4" />
@@ -162,12 +159,12 @@ export default function ChatPage() {
                 <PanelLeft className="w-4 h-4" />
               )}
             </button>
-            <span className="text-sm font-medium text-text-secondary">
+            <span className="text-[13px] font-medium text-text-muted">
               {conversationId ? "Conversation" : "New chat"}
             </span>
           </div>
           {metadata && !isStreaming && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Badge size="sm" variant="default">
                 <Clock className="w-3 h-3" />
                 {metadata.latency_ms}ms
@@ -190,37 +187,35 @@ export default function ChatPage() {
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center px-6">
               <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4 }}
-                className="text-center max-w-lg"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="text-center max-w-md"
               >
-                <div className="w-16 h-16 bg-gradient-to-br from-accent/20 to-purple-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-accent/20">
-                  <Sparkles className="w-8 h-8 text-accent" />
+                <div className="w-14 h-14 bg-gradient-to-br from-accent/10 to-purple-500/10 rounded-2xl flex items-center justify-center mx-auto mb-7 border border-accent/[0.1]">
+                  <Sparkles className="w-7 h-7 text-accent/70" />
                 </div>
-                <h2 className="text-xl font-semibold mb-2">
+                <h2 className="text-xl font-semibold mb-3 tracking-tight">
                   Ask anything about your documents
                 </h2>
-                <p className="text-text-secondary text-sm leading-relaxed mb-8">
-                  I use hybrid retrieval with cross-encoder reranking to find the most relevant
-                  information and provide cited answers.
+                <p className="text-text-muted text-sm leading-relaxed mb-10">
+                  AI-powered semantic search finds the most relevant
+                  passages and provides cited answers.
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[
                     "What are the key findings?",
                     "Summarize the main topics",
                     "Compare the documents",
                     "What are the recommendations?",
                   ].map((suggestion) => (
-                    <motion.button
+                    <button
                       key={suggestion}
-                      whileHover={{ scale: 1.01, y: -1 }}
-                      whileTap={{ scale: 0.99 }}
                       onClick={() => setInput(suggestion)}
-                      className="px-4 py-3 bg-surface border border-border rounded-xl text-sm text-text-secondary hover:text-text-primary hover:border-accent/30 transition-all text-left"
+                      className="px-4 py-3 bg-white/[0.02] border border-white/[0.04] rounded-xl text-sm text-text-muted hover:text-text-primary hover:border-accent/20 hover:bg-accent/[0.03] transition-all duration-300 text-left"
                     >
                       {suggestion}
-                    </motion.button>
+                    </button>
                   ))}
                 </div>
               </motion.div>
@@ -230,21 +225,21 @@ export default function ChatPage() {
               {messages.map((msg, i) => (
                 <motion.div
                   key={msg.id}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.25 }}
                   className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}
                 >
                   {msg.role === "assistant" && (
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent/10 to-purple-500/10 border border-accent/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <Sparkles className="w-4 h-4 text-accent" />
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent/[0.08] to-purple-500/[0.08] border border-accent/[0.1] flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Sparkles className="w-4 h-4 text-accent/70" />
                     </div>
                   )}
 
                   <div
                     className={`max-w-[85%] md:max-w-[80%] ${
                       msg.role === "user"
-                        ? "bg-accent text-white rounded-2xl rounded-br-md px-4 py-3"
+                        ? "bg-accent/90 text-white rounded-2xl rounded-br-md px-4 py-3"
                         : ""
                     }`}
                   >
@@ -261,8 +256,8 @@ export default function ChatPage() {
                   </div>
 
                   {msg.role === "user" && (
-                    <div className="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <User className="w-4 h-4 text-text-secondary" />
+                    <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <User className="w-4 h-4 text-text-muted" />
                     </div>
                   )}
                 </motion.div>
@@ -281,7 +276,7 @@ export default function ChatPage() {
               exit={{ opacity: 0, height: 0 }}
               className="px-4 md:px-6 pb-2"
             >
-              <div className="max-w-3xl mx-auto bg-error/10 border border-error/20 text-error rounded-xl px-4 py-3 text-sm flex items-center gap-2">
+              <div className="max-w-3xl mx-auto bg-error/[0.06] border border-error/[0.1] text-error rounded-xl px-4 py-3 text-sm flex items-center gap-2">
                 <RotateCcw className="w-4 h-4 flex-shrink-0" />
                 {error}
               </div>
@@ -289,11 +284,11 @@ export default function ChatPage() {
           )}
         </AnimatePresence>
 
-        {/* Citations panel */}
+        {/* Citations */}
         <CitationPanel citations={citations} />
 
         {/* Input */}
-        <div className="border-t border-border bg-background/80 backdrop-blur-sm p-4">
+        <div className="border-t border-white/[0.04] bg-background/80 backdrop-blur-xl p-4">
           <form
             onSubmit={handleSubmit}
             className="max-w-3xl mx-auto flex items-end gap-3"
@@ -306,25 +301,23 @@ export default function ChatPage() {
                 onKeyDown={handleKeyDown}
                 placeholder="Ask about your documents..."
                 rows={1}
-                className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent resize-none transition-all"
+                className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/30 resize-none transition-all duration-300"
               />
             </div>
-            <motion.button
+            <button
               type="submit"
               disabled={!input.trim() || isStreaming}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="p-3 bg-accent hover:bg-accent-hover text-white rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 shadow-sm shadow-accent/20"
+              className="p-3 bg-accent hover:bg-accent-hover text-white rounded-xl transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0 shadow-[0_0_15px_-3px_rgba(139,124,246,0.25)]"
             >
               {isStreaming ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
               ) : (
                 <Send className="w-4 h-4" />
               )}
-            </motion.button>
+            </button>
           </form>
-          <p className="text-center text-[11px] text-text-muted mt-2.5 max-w-3xl mx-auto">
-            Hybrid RAG with reranking. Responses cite source documents. Always verify critical info.
+          <p className="text-center text-[11px] text-text-muted/50 mt-3 max-w-3xl mx-auto">
+            AI-powered document Q&A with source citations. Always verify critical information.
           </p>
         </div>
       </div>
