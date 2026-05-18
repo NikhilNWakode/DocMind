@@ -4,14 +4,17 @@ import { forwardRef } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface CardProps {
   hover?: boolean;
   animate?: boolean;
   delay?: number;
+  className?: string;
+  children?: React.ReactNode;
+  onClick?: () => void;
 }
 
 const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ className, hover = false, animate = true, delay = 0, children, onDrag: _onDrag, onDragStart: _onDragStart, onDragEnd: _onDragEnd, ...props }, ref) => {
+  ({ className, hover = false, animate = true, delay = 0, children, onClick }, ref) => {
     const classes = cn(
       "bg-surface border border-border rounded-xl p-5 transition-all duration-200",
       hover && "cursor-pointer hover:border-accent/40 hover:bg-surface-hover hover:shadow-lg hover:shadow-accent/5",
@@ -20,7 +23,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
 
     if (!animate) {
       return (
-        <div ref={ref} className={classes} {...props}>
+        <div ref={ref} className={classes} onClick={onClick}>
           {children}
         </div>
       );
@@ -30,10 +33,10 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
       <motion.div
         ref={ref}
         className={classes}
+        onClick={onClick}
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay }}
-        {...props}
       >
         {children}
       </motion.div>
