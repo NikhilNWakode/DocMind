@@ -11,30 +11,32 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ className, hover = false, animate = true, delay = 0, children, ...props }, ref) => {
-    const Comp = animate ? motion.div : "div";
+  ({ className, hover = false, animate = true, delay = 0, children, onDrag: _onDrag, onDragStart: _onDragStart, onDragEnd: _onDragEnd, ...props }, ref) => {
+    const classes = cn(
+      "bg-surface border border-border rounded-xl p-5 transition-all duration-200",
+      hover && "cursor-pointer hover:border-accent/40 hover:bg-surface-hover hover:shadow-lg hover:shadow-accent/5",
+      className
+    );
 
-    const motionProps = animate
-      ? {
-          initial: { opacity: 0, y: 12 },
-          animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.3, delay },
-        }
-      : {};
+    if (!animate) {
+      return (
+        <div ref={ref} className={classes} {...props}>
+          {children}
+        </div>
+      );
+    }
 
     return (
-      <Comp
+      <motion.div
         ref={ref}
-        className={cn(
-          "bg-surface border border-border rounded-xl p-5 transition-all duration-200",
-          hover && "cursor-pointer hover:border-accent/40 hover:bg-surface-hover hover:shadow-lg hover:shadow-accent/5",
-          className
-        )}
-        {...motionProps}
+        className={classes}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay }}
         {...props}
       >
         {children}
-      </Comp>
+      </motion.div>
     );
   }
 );
