@@ -1,0 +1,78 @@
+# Render Blueprint — deploys all services from one file
+# https://render.com/docs/blueprint-spec
+
+services:
+  # FastAPI Backend
+  - type: web
+    name: docmind-backend
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: |
+      cd backend && pip install .
+    startCommand: |
+      cd backend && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: docmind-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: docmind-redis
+          type: redis
+          property: connectionString
+      - key: QDRANT_URL
+        value: https://your-qdrant-cloud-url.qdrant.io
+      - key: LLM_API_KEY
+        sync: false  # will prompt you to fill in during deploy
+      - key: LLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: LLM_FAST_MODEL
+        value: llama-3.1-8b-instant
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: S3_ENDPOINT
+        value: https://your-r2-endpoint.r2.cloudflarestorage.com
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_BUCKET
+        value: docmind-documents
+      - key: CORS_ORIGINS
+        value: '["https://docmind-frontend.onrender.com"]'
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+
+  # Next.js Frontend
+  - type: web
+    name: docmind-frontend
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://docmind-backend.onrender.com
+
+  # Redis
+  - type: redis
+    name: docmind-redis
+    region: oregon
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+# PostgreSQL Database
+databases:
+  - name: docmind-db
+    region: oregon
+    plan: free
+    databaseName: docmind
+    user: docmind
