@@ -48,14 +48,20 @@ class DocumentService:
         )
         self.embedding_service = EmbeddingService()
 
-        # Try to initialize S3, fallback to local storage
-        try:
-            self.storage = StorageService()
-            self.use_s3 = True
-        except Exception:
+        # Use S3 only if endpoint is configured and not localhost
+        s3_endpoint = settings.s3_endpoint or ""
+        if s3_endpoint and "localhost" not in s3_endpoint and "127.0.0.1" not in s3_endpoint:
+            try:
+                self.storage = StorageService()
+                self.use_s3 = True
+            except Exception:
+                self.storage = None
+                self.use_s3 = False
+                logger.warning("s3_unavailable_using_local_storage")
+        else:
             self.storage = None
             self.use_s3 = False
-            logger.warning("s3_unavailable_using_local_storage")
+            logger.info("using_local_file_storage")
 
     async def upload_document(
         self,
