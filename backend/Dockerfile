@@ -17,10 +17,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install Python dependencies (no PyTorch — uses API embeddings in production)
 COPY pyproject.toml .
-RUN pip install --timeout 300 torch --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --timeout 300 --retries 5 .
+RUN pip install --timeout 300 --retries 5 .
 
 # Copy application code
 COPY . .
