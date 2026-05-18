@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     # Qdrant
     qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: str = ""
     qdrant_collection_prefix: str = "workspace"
 
     # Object Storage (MinIO/S3)
