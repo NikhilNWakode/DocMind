@@ -104,6 +104,3 @@ Deploy to Render using the included `render.yaml` blueprint:
 3. Connect your repo — Render auto-detects `render.yaml`
 4. Fill in environment variables when prompted
 
-## License
-
-MIT
