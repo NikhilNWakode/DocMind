@@ -19,9 +19,25 @@ settings = get_settings()
 logger = structlog.get_logger()
 
 
+def _run_migrations():
+    """Run Alembic migrations on startup (for environments without shell access)."""
+    try:
+        from alembic.config import Config
+        from alembic import command
+
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+        logger.info("migrations_applied")
+    except Exception as e:
+        logger.warning("migration_skipped", error=str(e)[:200])
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown lifecycle."""
+    # Run DB migrations automatically
+    _run_migrations()
+
     logger.info(
         "starting_application",
         app_name=settings.app_name,
