@@ -2,8 +2,6 @@
 
 Upload a document, ask questions, get AI-powered answers with citations. Each chat is scoped to a single document for focused, accurate retrieval.
 
-**Live Demo:** [docmind-ai.vercel.app](https://docmind-ai.vercel.app)
-
 ## How It Works
 
 1. **Upload** a PDF, DOCX, or TXT inside the chat
@@ -141,7 +139,3 @@ frontend/
     stores/          # Zustand stores (auth, chat)
     lib/             # API client, utilities
 ```
-
-## License
-
-MIT
