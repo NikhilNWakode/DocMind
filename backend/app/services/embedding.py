@@ -1,9 +1,8 @@
-"""Embedding service — uses HuggingFace API in production, local model in development."""
+"""Embedding service — uses HuggingFace Inference API in production, local model in development."""
 
 import os
 import time
 
-import httpx
 import numpy as np
 import structlog
 
@@ -30,11 +29,11 @@ def get_embedding_model():
 
 
 class EmbeddingService:
-    """Generate embeddings using local model or HuggingFace API."""
+    """Generate embeddings using local model or HuggingFace Inference API."""
 
     def __init__(self):
         self.dimension = settings.embedding_dimension
-        self._api_url = f"https://router.huggingface.co/hf-inference/models/sentence-transformers/{settings.embedding_model}"
+        self._model_id = f"sentence-transformers/{settings.embedding_model}"
 
     def embed_texts(self, texts: list[str]) -> list[np.ndarray]:
         """Generate embeddings for a list of texts."""
@@ -66,33 +65,32 @@ class EmbeddingService:
         return self.dimension
 
     def _embed_via_api(self, texts: list[str]) -> list[np.ndarray]:
-        """Use HuggingFace Inference API for embeddings."""
+        """Use HuggingFace Inference API for embeddings via official client."""
+        from huggingface_hub import InferenceClient
+
         hf_token = os.getenv("HF_TOKEN", "")
         if not hf_token:
             raise RuntimeError("HF_TOKEN environment variable is required for embeddings API")
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {hf_token}",
-        }
 
+        client = InferenceClient(token=hf_token)
         all_embeddings = []
+
         for i in range(0, len(texts), 32):
             batch = texts[i:i + 32]
             last_error = None
 
             for attempt in range(3):
                 try:
-                    response = httpx.post(
-                        self._api_url,
-                        json={"inputs": batch, "options": {"wait_for_model": True}},
-                        headers=headers,
-                        timeout=120.0,
+                    # feature_extraction returns embeddings correctly
+                    results = client.feature_extraction(
+                        text=batch,
+                        model=self._model_id,
                     )
-                    response.raise_for_status()
-                    data = response.json()
 
-                    for emb in data:
+                    # results is a numpy array or list of lists
+                    for emb in results:
                         arr = np.array(emb, dtype=np.float32)
+                        # Normalize
                         norm = np.linalg.norm(arr)
                         if norm > 0:
                             arr = arr / norm
@@ -101,30 +99,18 @@ class EmbeddingService:
                     last_error = None
                     break
 
-                except httpx.HTTPStatusError as e:
-                    last_error = e
-                    status = e.response.status_code
-                    body = e.response.text[:200]
-                    logger.warning(
-                        "embedding_api_http_error",
-                        attempt=attempt + 1,
-                        status=status,
-                        body=body,
-                    )
-                    # 503 = model loading, retry
-                    if status in (503, 429):
-                        time.sleep(3 * (attempt + 1))
-                        continue
-                    raise RuntimeError(f"Embedding API failed (HTTP {status}): {body}")
-
                 except Exception as e:
                     last_error = e
-                    logger.warning("embedding_api_error", attempt=attempt + 1, error=str(e)[:100])
+                    logger.warning(
+                        "embedding_attempt_failed",
+                        attempt=attempt + 1,
+                        error=str(e)[:150],
+                    )
                     if attempt < 2:
-                        time.sleep(2 * (attempt + 1))
+                        time.sleep(3 * (attempt + 1))
                         continue
 
             if last_error is not None:
-                raise RuntimeError(f"Embedding API failed after 3 attempts: {last_error}")
+                raise RuntimeError(f"Embedding failed after 3 attempts: {last_error}")
 
         return all_embeddings
