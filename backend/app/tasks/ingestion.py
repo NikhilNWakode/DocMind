@@ -83,6 +83,8 @@ async def _process_document_async(document_id: uuid.UUID, redis_client) -> dict:
         # Stage 3: Extract text
         extractor = TextExtractor()
         extracted = await extractor.extract(file_path, doc.file_type)
+        # Use the actual document title from DB, not the file path
+        extracted.title = doc.title or extracted.title
         _publish_progress(redis_client, doc_id_str, "extracting", 20, f"Extracted {extracted.total_pages} pages")
 
         # Stage 4: Chunk text

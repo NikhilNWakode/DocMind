@@ -15,6 +15,7 @@ settings = get_settings()
 USE_API = settings.app_env == "production" or os.getenv("USE_EMBEDDING_API", "").lower() == "true"
 
 _model = None
+_hf_client = None
 
 
 def get_embedding_model():
@@ -26,6 +27,19 @@ def get_embedding_model():
         _model = SentenceTransformer(settings.embedding_model)
         logger.info("embedding_model_loaded", model=settings.embedding_model)
     return _model
+
+
+def get_hf_client():
+    """Lazy-load the HuggingFace InferenceClient."""
+    global _hf_client
+    if _hf_client is None:
+        from huggingface_hub import InferenceClient
+        hf_token = os.getenv("HF_TOKEN", "")
+        if not hf_token:
+            raise RuntimeError("HF_TOKEN environment variable is required for embeddings API")
+        _hf_client = InferenceClient(token=hf_token)
+        logger.info("hf_inference_client_created")
+    return _hf_client
 
 
 class EmbeddingService:
@@ -66,36 +80,36 @@ class EmbeddingService:
 
     def _embed_via_api(self, texts: list[str]) -> list[np.ndarray]:
         """Use HuggingFace Inference API for embeddings via official client."""
-        from huggingface_hub import InferenceClient
-
-        hf_token = os.getenv("HF_TOKEN", "")
-        if not hf_token:
-            raise RuntimeError("HF_TOKEN environment variable is required for embeddings API")
-
-        client = InferenceClient(token=hf_token)
+        client = get_hf_client()
         all_embeddings = []
 
-        for i in range(0, len(texts), 32):
-            batch = texts[i:i + 32]
+        # Process each text individually for reliability
+        for text in texts:
             last_error = None
 
             for attempt in range(3):
                 try:
-                    # feature_extraction returns embeddings correctly
-                    results = client.feature_extraction(
-                        text=batch,
+                    result = client.feature_extraction(
+                        text=text,
                         model=self._model_id,
                     )
 
-                    # results is a numpy array or list of lists
-                    for emb in results:
-                        arr = np.array(emb, dtype=np.float32)
-                        # Normalize
-                        norm = np.linalg.norm(arr)
-                        if norm > 0:
-                            arr = arr / norm
-                        all_embeddings.append(arr)
+                    # result shape: could be [384], [[384]], or [tokens x 384]
+                    arr = np.array(result, dtype=np.float32)
 
+                    # If 2D (token-level embeddings), mean pool to get sentence embedding
+                    if arr.ndim == 2:
+                        arr = arr.mean(axis=0)
+                    elif arr.ndim == 3:
+                        # [1, tokens, dim] -> mean pool
+                        arr = arr[0].mean(axis=0)
+
+                    # Normalize
+                    norm = np.linalg.norm(arr)
+                    if norm > 0:
+                        arr = arr / norm
+
+                    all_embeddings.append(arr)
                     last_error = None
                     break
 
