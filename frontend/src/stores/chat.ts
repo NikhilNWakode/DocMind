@@ -6,13 +6,15 @@ interface ChatStore {
   isStreaming: boolean;
   citations: Citation[];
   conversationId: string | null;
+  documentId: string | null;
   metadata: ChatMetadata | null;
   error: string | null;
 
-  sendMessage: (query: string, workspaceId: string) => Promise<void>;
+  sendMessage: (query: string, workspaceId: string, documentId?: string) => Promise<void>;
   loadConversation: (conversationId: string) => Promise<void>;
   clearChat: () => void;
   setConversationId: (id: string | null) => void;
+  setDocumentId: (id: string | null) => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -20,10 +22,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isStreaming: false,
   citations: [],
   conversationId: null,
+  documentId: null,
   metadata: null,
   error: null,
 
-  sendMessage: async (query, workspaceId) => {
+  sendMessage: async (query, workspaceId, documentId) => {
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -51,6 +54,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }));
 
     const currentConvId = get().conversationId;
+    const docId = documentId || get().documentId || undefined;
 
     await api.streamChat(
       query,
@@ -93,7 +97,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // onError
       (error) => {
         set({ isStreaming: false, error });
-      }
+      },
+      // documentId
+      docId
     );
   },
 
@@ -112,6 +118,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set({
       messages: [],
       conversationId: null,
+      documentId: null,
       citations: [],
       metadata: null,
       error: null,
@@ -120,4 +127,5 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   setConversationId: (id) => set({ conversationId: id }),
+  setDocumentId: (id) => set({ documentId: id }),
 }));

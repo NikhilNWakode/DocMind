@@ -8,36 +8,37 @@ import { useChatStore } from "@/stores/chat";
 import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 import { CitationPanel } from "@/components/chat/citation-panel";
 import { TypingIndicator } from "@/components/chat/typing-indicator";
-import { formatFileSize, formatDate, getFileTypeIcon } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { formatDate, getFileTypeIcon } from "@/lib/utils";
 import {
   Send,
   Sparkles,
   User,
   FileText,
   Trash2,
-  CheckCircle2,
-  AlertCircle,
   Loader2,
   CloudUpload,
   Plus,
   MessageSquare,
-  PanelLeftClose,
-  PanelLeft,
   RotateCcw,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 
 const DEFAULT_WORKSPACE_NAME = "My Documents";
 
+type ChatState = "empty" | "uploading" | "processing" | "ready";
+
 export default function DashboardPage() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
-  const [documents, setDocuments] = useState<Document[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState("");
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState("");
-  const [showDocs, setShowDocs] = useState(true);
+
+  // Current chat's document state
+  const [chatState, setChatState] = useState<ChatState>("empty");
+  const [currentDoc, setCurrentDoc] = useState<Document | null>(null);
+  const [uploadError, setUploadError] = useState("");
+  const [processingProgress, setProcessingProgress] = useState("");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -47,11 +48,13 @@ export default function DashboardPage() {
     isStreaming,
     citations,
     conversationId,
+    documentId,
     metadata,
     error,
     sendMessage,
     loadConversation,
     clearChat,
+    setDocumentId,
   } = useChatStore();
 
   // Auto-create or fetch default workspace
@@ -60,11 +63,8 @@ export default function DashboardPage() {
       try {
         const data = await api.listWorkspaces();
         if (data.workspaces.length > 0) {
-          // Use existing workspace
-          const ws = data.workspaces[0];
-          setWorkspaceId(ws.id);
+          setWorkspaceId(data.workspaces[0].id);
         } else {
-          // Create default workspace
           const ws = await api.createWorkspace(DEFAULT_WORKSPACE_NAME, "Default workspace");
           setWorkspaceId(ws.id);
         }
@@ -77,51 +77,47 @@ export default function DashboardPage() {
     initWorkspace();
   }, []);
 
-  // Load documents and conversations when workspace is ready
-  useEffect(() => {
+  // Load conversations when workspace is ready
+  const loadConversations = useCallback(async () => {
     if (!workspaceId) return;
+    try {
+      const convs = await api.listConversations(workspaceId);
+      setConversations(convs.conversations);
+    } catch (err) {
+      console.error("Failed to load conversations:", err);
+    }
+  }, [workspaceId]);
 
-    const loadData = async () => {
-      try {
-        const [docs, convs] = await Promise.all([
-          api.listDocuments(workspaceId),
-          api.listConversations(workspaceId),
-        ]);
-        setDocuments(docs.documents);
-        setConversations(convs.conversations);
-      } catch (err) {
-        console.error("Failed to load data:", err);
-      }
-    };
-    loadData();
-  }, [workspaceId, conversationId]);
-
-  // Poll for processing documents
   useEffect(() => {
-    const processingDocs = documents.filter(
-      (d) => d.status === "processing" || d.status === "pending"
-    );
-    if (processingDocs.length === 0) return;
+    loadConversations();
+  }, [loadConversations, conversationId]);
+
+  // Poll document status while processing
+  useEffect(() => {
+    if (chatState !== "processing" || !currentDoc) return;
 
     const interval = setInterval(async () => {
-      for (const doc of processingDocs) {
-        try {
-          const status = await api.getDocumentStatus(doc.id);
-          setDocuments((prev) =>
-            prev.map((d) =>
-              d.id === doc.id
-                ? { ...d, status: status.status, chunk_count: status.chunk_count }
-                : d
-            )
-          );
-        } catch {
-          // ignore
+      try {
+        const status = await api.getDocumentStatus(currentDoc.id);
+        if (status.status === "indexed") {
+          setCurrentDoc((prev) => prev ? { ...prev, status: "indexed", chunk_count: status.chunk_count } : null);
+          setChatState("ready");
+          setProcessingProgress("");
+        } else if (status.status === "failed") {
+          setChatState("empty");
+          setUploadError(status.error_message || "Document processing failed");
+          setCurrentDoc(null);
+          setProcessingProgress("");
+        } else if (status.progress) {
+          setProcessingProgress(status.progress.message || "Processing...");
         }
+      } catch {
+        // ignore polling errors
       }
-    }, 3000);
+    }, 2000);
 
     return () => clearInterval(interval);
-  }, [documents]);
+  }, [chatState, currentDoc]);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -138,21 +134,43 @@ export default function DashboardPage() {
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
-      if (!workspaceId) return;
-      for (const file of acceptedFiles) {
-        setUploading(true);
-        setUploadProgress(`Uploading ${file.name}...`);
-        try {
-          const doc = await api.uploadDocument(workspaceId, file);
-          setDocuments((prev) => [doc, ...prev]);
-        } catch (err) {
-          console.error("Upload failed:", err);
+      if (!workspaceId || acceptedFiles.length === 0) return;
+      const file = acceptedFiles[0]; // One document per chat
+
+      setChatState("uploading");
+      setUploadError("");
+
+      try {
+        const doc = await api.uploadDocument(workspaceId, file);
+        setCurrentDoc(doc);
+        setDocumentId(doc.id);
+
+        if (doc.status === "indexed") {
+          setChatState("ready");
+        } else {
+          setChatState("processing");
+          setProcessingProgress("Starting processing...");
+
+          // Also connect to SSE progress
+          api.streamIngestionProgress(
+            doc.id,
+            (progress) => {
+              setProcessingProgress(progress.message || `${progress.stage}...`);
+            },
+            () => {
+              // Complete — polling will catch the final status
+            },
+            (err) => {
+              console.error("Progress stream error:", err);
+            }
+          );
         }
+      } catch (err) {
+        setChatState("empty");
+        setUploadError(err instanceof Error ? err.message : "Upload failed");
       }
-      setUploading(false);
-      setUploadProgress("");
     },
-    [workspaceId]
+    [workspaceId, setDocumentId]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -163,23 +181,15 @@ export default function DashboardPage() {
       "text/plain": [".txt"],
     },
     maxSize: 50 * 1024 * 1024,
+    multiple: false,
   });
-
-  const handleDeleteDoc = async (docId: string) => {
-    try {
-      await api.deleteDocument(docId);
-      setDocuments((prev) => prev.filter((d) => d.id !== docId));
-    } catch (err) {
-      console.error("Delete failed:", err);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isStreaming || !workspaceId) return;
+    if (!input.trim() || isStreaming || !workspaceId || chatState !== "ready") return;
     const query = input.trim();
     setInput("");
-    await sendMessage(query, workspaceId);
+    await sendMessage(query, workspaceId, currentDoc?.id);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -189,12 +199,53 @@ export default function DashboardPage() {
     }
   };
 
+  const handleNewChat = () => {
+    clearChat();
+    setChatState("empty");
+    setCurrentDoc(null);
+    setUploadError("");
+    setProcessingProgress("");
+  };
+
+  const handleLoadConversation = async (conv: Conversation) => {
+    await loadConversation(conv.id);
+
+    // If this conversation has a linked document, set state to ready
+    if (conv.document_id) {
+      try {
+        const status = await api.getDocumentStatus(conv.document_id);
+        setCurrentDoc({
+          id: conv.document_id,
+          workspace_id: conv.workspace_id,
+          title: conv.title,
+          file_type: "pdf",
+          file_size: 0,
+          page_count: null,
+          status: status.status,
+          chunk_count: status.chunk_count,
+          error_message: null,
+          created_at: conv.created_at,
+          updated_at: conv.updated_at,
+        });
+        setDocumentId(conv.document_id);
+        setChatState(status.status === "indexed" ? "ready" : "empty");
+      } catch {
+        // Document might have been deleted — still show messages
+        setChatState("ready");
+        setCurrentDoc(null);
+      }
+    } else {
+      setChatState("ready");
+      setCurrentDoc(null);
+    }
+  };
+
   const handleDeleteConversation = async (convId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       await api.deleteConversation(convId);
       setConversations((prev) => prev.filter((c) => c.id !== convId));
-      if (conversationId === convId) clearChat();
+      if (conversationId === convId) handleNewChat();
     } catch (err) {
       console.error("Delete conversation failed:", err);
     }
@@ -215,208 +266,210 @@ export default function DashboardPage() {
     );
   }
 
-  const indexedCount = documents.filter((d) => d.status === "indexed").length;
-
   return (
     <div className="h-[calc(100vh-3.5rem)] flex">
-      {/* Left panel — Documents */}
-      <AnimatePresence mode="wait">
-        {showDocs && (
-          <motion.div
-            initial={{ opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: 320 }}
-            exit={{ opacity: 0, width: 0 }}
-            transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
-            className="border-r border-white/[0.04] bg-surface/30 flex flex-col overflow-hidden"
+      {/* Sidebar — Past chats */}
+      <div className="w-64 border-r border-white/[0.04] bg-surface/30 flex flex-col overflow-hidden flex-shrink-0">
+        <div className="p-3">
+          <button
+            onClick={handleNewChat}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-text-secondary hover:text-text-primary bg-white/[0.03] hover:bg-accent/[0.06] rounded-xl border border-white/[0.06] hover:border-accent/20 transition-all duration-300"
           >
-            {/* Upload zone */}
-            <div className="p-3 border-b border-white/[0.04]">
+            <Plus className="w-4 h-4" />
+            New chat
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
+          {conversations.length === 0 ? (
+            <div className="text-center py-12 px-4">
+              <MessageSquare className="w-6 h-6 text-text-muted/20 mx-auto mb-3" />
+              <p className="text-[11px] text-text-muted/60">No conversations yet</p>
+            </div>
+          ) : (
+            conversations.map((conv) => (
               <div
-                {...getRootProps()}
-                className={`border border-dashed rounded-xl p-4 text-center cursor-pointer transition-all duration-300 ${
-                  isDragActive
-                    ? "border-accent/40 bg-accent/[0.03]"
-                    : "border-white/[0.06] hover:border-accent/20"
+                key={conv.id}
+                className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
+                  conversationId === conv.id
+                    ? "bg-accent/[0.08] border border-accent/[0.12]"
+                    : "hover:bg-white/[0.03] border border-transparent"
                 }`}
+                onClick={() => handleLoadConversation(conv)}
               >
-                <input {...getInputProps()} />
-                {uploading ? (
-                  <div className="flex items-center gap-3">
-                    <Loader2 className="w-4 h-4 text-accent animate-spin" />
-                    <span className="text-xs text-text-muted">{uploadProgress}</span>
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <span className="text-sm flex-shrink-0 opacity-50">
+                    {getFileTypeIcon("pdf")}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-[12px] font-medium truncate ${
+                      conversationId === conv.id ? "text-accent" : "text-text-secondary"
+                    }`}>
+                      {conv.title}
+                    </p>
+                    <p className="text-[10px] text-text-muted/60 mt-0.5">
+                      {formatDate(conv.updated_at)}
+                    </p>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <CloudUpload className="w-5 h-5 text-text-muted" />
-                    <div className="text-left">
-                      <p className="text-xs font-medium text-text-secondary">
-                        {isDragActive ? "Drop here" : "Upload documents"}
-                      </p>
-                      <p className="text-[10px] text-text-muted mt-0.5">PDF, DOCX, TXT</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Document stats */}
-            <div className="px-3 py-2 border-b border-white/[0.04] flex items-center gap-2">
-              <Badge variant="default" size="sm">
-                <FileText className="w-3 h-3" />
-                {documents.length} docs
-              </Badge>
-              <Badge variant="success" size="sm">
-                {indexedCount} indexed
-              </Badge>
-            </div>
-
-            {/* Document list */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {documents.length === 0 ? (
-                <div className="text-center py-10 px-4">
-                  <FileText className="w-7 h-7 text-text-muted/30 mx-auto mb-3" />
-                  <p className="text-xs text-text-muted">Upload a document to get started</p>
                 </div>
-              ) : (
-                documents.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="group flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/[0.03] transition-all"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <span className="text-base flex-shrink-0">{getFileTypeIcon(doc.file_type)}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[12px] font-medium truncate text-text-secondary">
-                          {doc.title}
-                        </p>
-                        <div className="flex items-center gap-2 text-[10px] text-text-muted mt-0.5">
-                          <span>{formatFileSize(doc.file_size)}</span>
-                          {doc.status === "indexed" && (
-                            <CheckCircle2 className="w-3 h-3 text-success" />
-                          )}
-                          {doc.status === "processing" && (
-                            <Loader2 className="w-3 h-3 text-warning animate-spin" />
-                          )}
-                          {doc.status === "failed" && (
-                            <AlertCircle className="w-3 h-3 text-error" />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteDoc(doc.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error rounded transition-all"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Conversations */}
-            <div className="border-t border-white/[0.04]">
-              <div className="p-2">
                 <button
-                  onClick={clearChat}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-[12px] font-medium text-text-muted hover:text-text-primary bg-white/[0.02] hover:bg-white/[0.04] rounded-lg border border-white/[0.04] transition-all"
+                  onClick={(e) => handleDeleteConversation(conv.id, e)}
+                  className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error rounded transition-all"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  New chat
+                  <Trash2 className="w-3 h-3" />
                 </button>
               </div>
-              <div className="max-h-40 overflow-y-auto px-2 pb-2 space-y-0.5">
-                {conversations.map((conv) => (
-                  <div
-                    key={conv.id}
-                    className={`group flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-all text-[12px] ${
-                      conversationId === conv.id
-                        ? "bg-accent/[0.08] text-accent"
-                        : "text-text-muted hover:text-text-primary hover:bg-white/[0.03]"
-                    }`}
-                    onClick={() => loadConversation(conv.id)}
-                  >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <MessageSquare className="w-3 h-3 flex-shrink-0 opacity-50" />
-                      <span className="truncate">{conv.title}</span>
-                    </div>
-                    <button
-                      onClick={(e) => handleDeleteConversation(conv.id, e)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error rounded transition-all"
-                    >
-                      <Trash2 className="w-2.5 h-2.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            ))
+          )}
+        </div>
+      </div>
 
-      {/* Right panel — Chat */}
+      {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Chat header */}
-        <div className="h-11 border-b border-white/[0.04] flex items-center justify-between px-4 flex-shrink-0">
+        <div className="h-12 border-b border-white/[0.04] flex items-center justify-between px-5 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowDocs(!showDocs)}
-              className="p-1.5 text-text-muted hover:text-text-primary rounded-lg hover:bg-white/[0.04] transition-all"
-            >
-              {showDocs ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
-            </button>
-            <span className="text-[13px] font-medium text-text-muted">
-              {conversationId ? "Conversation" : "New chat"}
-            </span>
+            {currentDoc ? (
+              <>
+                <span className="text-sm">{getFileTypeIcon(currentDoc.file_type)}</span>
+                <span className="text-[13px] font-medium text-text-secondary truncate max-w-xs">
+                  {currentDoc.title}
+                </span>
+                {currentDoc.status === "indexed" && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-success flex-shrink-0" />
+                )}
+                {currentDoc.status === "processing" && (
+                  <Loader2 className="w-3.5 h-3.5 text-warning animate-spin flex-shrink-0" />
+                )}
+              </>
+            ) : (
+              <span className="text-[13px] font-medium text-text-muted">New chat</span>
+            )}
           </div>
           {metadata && !isStreaming && (
-            <div className="flex items-center gap-2">
-              <Badge size="sm" variant="default">
-                {metadata.model}
-              </Badge>
+            <div className="flex items-center gap-2 text-[11px] text-text-muted">
+              <span className="px-2 py-0.5 bg-white/[0.04] rounded-md">{metadata.model}</span>
+              <span>{metadata.latency_ms}ms</span>
             </div>
           )}
         </div>
 
-        {/* Messages */}
+        {/* Messages area */}
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center px-6">
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-center max-w-md"
+                className="text-center max-w-lg w-full"
               >
-                <div className="w-14 h-14 bg-gradient-to-br from-accent/10 to-purple-500/10 rounded-2xl flex items-center justify-center mx-auto mb-7 border border-accent/[0.1]">
-                  <Sparkles className="w-7 h-7 text-accent/70" />
-                </div>
-                <h2 className="text-xl font-semibold mb-3 tracking-tight">
-                  Chat with your documents
-                </h2>
-                <p className="text-text-muted text-sm leading-relaxed mb-8">
-                  Upload a PDF, then ask anything. AI will find relevant passages and answer with citations.
-                </p>
-                {indexedCount === 0 ? (
-                  <p className="text-text-muted text-sm">
-                    Upload a document from the left panel to get started
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {[
-                      "What are the key findings?",
-                      "Summarize the main topics",
-                      "What are the conclusions?",
-                      "Explain the methodology",
-                    ].map((suggestion) => (
-                      <button
-                        key={suggestion}
-                        onClick={() => setInput(suggestion)}
-                        className="px-4 py-3 bg-white/[0.02] border border-white/[0.04] rounded-xl text-sm text-text-muted hover:text-text-primary hover:border-accent/20 hover:bg-accent/[0.03] transition-all duration-300 text-left"
+                {/* Empty state — Upload prompt */}
+                {chatState === "empty" && (
+                  <>
+                    <div className="w-16 h-16 bg-gradient-to-br from-accent/10 to-purple-500/10 rounded-2xl flex items-center justify-center mx-auto mb-8 border border-accent/[0.1]">
+                      <Sparkles className="w-8 h-8 text-accent/70" />
+                    </div>
+                    <h2 className="text-2xl font-semibold mb-3 tracking-tight">
+                      Chat with a document
+                    </h2>
+                    <p className="text-text-muted text-sm leading-relaxed mb-8 max-w-sm mx-auto">
+                      Upload a PDF, DOCX, or TXT file. Ask questions and get AI-powered answers with citations.
+                    </p>
+
+                    <div
+                      {...getRootProps()}
+                      className={`border-2 border-dashed rounded-2xl p-10 cursor-pointer transition-all duration-300 mx-auto max-w-sm ${
+                        isDragActive
+                          ? "border-accent/50 bg-accent/[0.05] scale-[1.02]"
+                          : "border-white/[0.08] hover:border-accent/30 hover:bg-white/[0.02]"
+                      }`}
+                    >
+                      <input {...getInputProps()} />
+                      <CloudUpload className={`w-10 h-10 mx-auto mb-4 transition-colors ${
+                        isDragActive ? "text-accent" : "text-text-muted/40"
+                      }`} />
+                      <p className="text-sm font-medium text-text-secondary mb-1">
+                        {isDragActive ? "Drop your file here" : "Drop a file or click to upload"}
+                      </p>
+                      <p className="text-xs text-text-muted/60">PDF, DOCX, TXT up to 50MB</p>
+                    </div>
+
+                    {uploadError && (
+                      <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-error text-sm mt-4 flex items-center justify-center gap-2"
                       >
-                        {suggestion}
-                      </button>
-                    ))}
+                        <AlertCircle className="w-4 h-4" />
+                        {uploadError}
+                      </motion.p>
+                    )}
+                  </>
+                )}
+
+                {/* Uploading state */}
+                {chatState === "uploading" && (
+                  <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="w-10 h-10 text-accent animate-spin" />
+                    <p className="text-sm text-text-secondary">Uploading document...</p>
                   </div>
+                )}
+
+                {/* Processing state */}
+                {chatState === "processing" && currentDoc && (
+                  <div className="flex flex-col items-center gap-5">
+                    <div className="relative">
+                      <div className="w-16 h-16 bg-accent/[0.06] rounded-2xl flex items-center justify-center border border-accent/[0.1]">
+                        <FileText className="w-8 h-8 text-accent/60" />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-background border-2 border-warning rounded-full flex items-center justify-center">
+                        <Loader2 className="w-3 h-3 text-warning animate-spin" />
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-text-secondary mb-1">{currentDoc.title}</p>
+                      <p className="text-xs text-text-muted">{processingProgress || "Processing..."}</p>
+                    </div>
+                    <div className="w-48 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full bg-accent/60 rounded-full"
+                        initial={{ width: "10%" }}
+                        animate={{ width: "90%" }}
+                        transition={{ duration: 30, ease: "linear" }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Ready state — show suggestions */}
+                {chatState === "ready" && (
+                  <>
+                    <div className="w-14 h-14 bg-gradient-to-br from-accent/10 to-purple-500/10 rounded-2xl flex items-center justify-center mx-auto mb-7 border border-accent/[0.1]">
+                      <Sparkles className="w-7 h-7 text-accent/70" />
+                    </div>
+                    <h2 className="text-xl font-semibold mb-3 tracking-tight">
+                      {currentDoc?.title || "Ask a question"}
+                    </h2>
+                    <p className="text-text-muted text-sm leading-relaxed mb-8">
+                      Your document is ready. Ask anything about it.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-md mx-auto">
+                      {[
+                        "What are the key findings?",
+                        "Summarize the main topics",
+                        "What are the conclusions?",
+                        "Explain the methodology",
+                      ].map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          onClick={() => setInput(suggestion)}
+                          className="px-4 py-3 bg-white/[0.02] border border-white/[0.04] rounded-xl text-sm text-text-muted hover:text-text-primary hover:border-accent/20 hover:bg-accent/[0.03] transition-all duration-300 text-left"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </>
                 )}
               </motion.div>
             </div>
@@ -499,18 +552,18 @@ export default function DashboardPage() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={
-                  indexedCount === 0
-                    ? "Upload a document first..."
-                    : "Ask about your documents..."
+                  chatState !== "ready"
+                    ? "Upload a document to start chatting..."
+                    : "Ask about your document..."
                 }
-                disabled={indexedCount === 0}
+                disabled={chatState !== "ready"}
                 rows={1}
                 className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/30 resize-none transition-all duration-300 disabled:opacity-40"
               />
             </div>
             <button
               type="submit"
-              disabled={!input.trim() || isStreaming || indexedCount === 0}
+              disabled={!input.trim() || isStreaming || chatState !== "ready"}
               className="p-3 bg-accent hover:bg-accent-hover text-white rounded-xl transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
             >
               {isStreaming ? (

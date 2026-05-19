@@ -62,6 +62,7 @@ class ChatService:
         workspace_id: uuid.UUID,
         user_id: uuid.UUID,
         conversation_id: uuid.UUID | None = None,
+        document_id: uuid.UUID | None = None,
     ) -> AsyncGenerator[StreamEvent, None]:
         """Execute RAG pipeline and stream the response."""
         start_time = time.time()
@@ -71,11 +72,15 @@ class ChatService:
             conversation = await self.conv_repo.get_by_id(conversation_id)
             if not conversation:
                 raise NotFoundError("Conversation", str(conversation_id))
+            # Use the conversation's linked document_id if not explicitly passed
+            if document_id is None and conversation.document_id:
+                document_id = conversation.document_id
         else:
             conversation = await self.conv_repo.create(
                 workspace_id=workspace_id,
                 user_id=user_id,
                 title=query[:100],
+                document_id=document_id,
             )
             await self.db.commit()
 
@@ -100,10 +105,12 @@ class ChatService:
 
         try:
             query_embedding = self.embedding_service.embed_query(query)
+            doc_filter = [str(document_id)] if document_id else None
             retrieved_chunks = self.vector_store.search(
                 workspace_id=str(workspace_id),
                 query_vector=query_embedding,
                 top_k=settings.retrieval_top_k,
+                document_ids=doc_filter,
             )
         except Exception as e:
             logger.error("retrieval_failed", error=str(e))
@@ -271,6 +278,7 @@ Provide a thorough answer based on the context above. Cite sources using [Source
                 "id": str(conv.id),
                 "title": conv.title,
                 "workspace_id": str(conv.workspace_id),
+                "document_id": str(conv.document_id) if conv.document_id else None,
                 "created_at": conv.created_at.isoformat(),
                 "updated_at": conv.updated_at.isoformat(),
                 "message_count": msg_count,

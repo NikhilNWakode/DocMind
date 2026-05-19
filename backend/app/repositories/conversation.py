@@ -18,8 +18,14 @@ class ConversationRepository:
         workspace_id: uuid.UUID,
         user_id: uuid.UUID,
         title: str = "New conversation",
+        document_id: uuid.UUID | None = None,
     ) -> Conversation:
-        conv = Conversation(workspace_id=workspace_id, user_id=user_id, title=title)
+        conv = Conversation(
+            workspace_id=workspace_id,
+            user_id=user_id,
+            title=title,
+            document_id=document_id,
+        )
         self.db.add(conv)
         await self.db.flush()
         return conv

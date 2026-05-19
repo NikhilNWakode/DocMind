@@ -10,6 +10,7 @@ class ChatRequest(BaseModel):
     query: str = Field(min_length=1, max_length=5000)
     workspace_id: uuid.UUID
     conversation_id: uuid.UUID | None = None
+    document_id: uuid.UUID | None = None  # Filter retrieval to a specific document
 
 
 class CitationSchema(BaseModel):

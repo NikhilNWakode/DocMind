@@ -240,20 +240,24 @@ class ApiClient {
     onMetadata?: (metadata: ChatMetadata) => void,
     onStart?: (conversationId: string) => void,
     onDone?: () => void,
-    onError?: (error: string) => void
+    onError?: (error: string) => void,
+    documentId?: string
   ) {
     const token = this.getToken();
+    const body: Record<string, unknown> = {
+      query,
+      workspace_id: workspaceId,
+    };
+    if (conversationId) body.conversation_id = conversationId;
+    if (documentId) body.document_id = documentId;
+
     const response = await fetch(`${this.baseUrl}/api/v1/chat/stream`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        query,
-        workspace_id: workspaceId,
-        conversation_id: conversationId,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -425,6 +429,7 @@ export interface Conversation {
   id: string;
   title: string;
   workspace_id: string;
+  document_id: string | null;
   created_at: string;
   updated_at: string;
   message_count: number;

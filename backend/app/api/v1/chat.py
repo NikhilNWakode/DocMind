@@ -35,6 +35,7 @@ async def stream_chat(
     query = chat_request.query
     workspace_id = chat_request.workspace_id
     conversation_id = chat_request.conversation_id
+    document_id = chat_request.document_id
 
     async def event_stream():
         async with async_session_factory() as session:
@@ -49,6 +50,7 @@ async def stream_chat(
                     workspace_id=workspace_id,
                     user_id=user_id,
                     conversation_id=conversation_id,
+                    document_id=document_id,
                 ):
                     data = {"type": event.type}
                     if event.content:
