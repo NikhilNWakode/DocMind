@@ -1,68 +1,84 @@
-# DocMind - AI Document Intelligence Platform
+# DocMind — AI Document Intelligence Platform
 
-A production-grade RAG (Retrieval-Augmented Generation) platform for intelligent document analysis. Upload documents, ask questions, and get AI-generated answers with precise citations.
+Upload a document, ask questions, get AI-powered answers with citations. Each chat is scoped to a single document for focused, accurate retrieval.
+
+**Live Demo:** [docmind-ai.vercel.app](https://docmind-ai.vercel.app)
+
+## How It Works
+
+1. **Upload** a PDF, DOCX, or TXT inside the chat
+2. Document is automatically processed (extracted, chunked, embedded, indexed)
+3. **Ask questions** — AI retrieves relevant passages and streams an answer with source citations
+4. **New document = new chat** — each conversation is tied to one document
 
 ## Features
 
-- **Semantic Document Search** — Hybrid retrieval (Dense + BM25 + RRF fusion) with cross-encoder reranking
-- **AI-Powered Q&A** — Stream answers with source citations using Llama 3.3 70B via Groq
+- **Document-Scoped RAG** — Each chat queries only its linked document for precise answers
+- **AI-Powered Q&A** — Streaming responses with source citations (Llama 3.3 70B via Groq)
 - **Multi-Format Support** — PDF, DOCX, TXT, and images (OCR via Tesseract)
-- **Real-Time Processing** — SSE streaming for chat responses and ingestion progress
-- **Workspace Isolation** — Collection-per-workspace in Qdrant for multi-tenant data separation
-- **Semantic Caching** — Redis-backed cosine similarity cache for repeated queries
-- **Conversation Memory** — Context-aware follow-up questions with summarization
-- **Dark Mode UI** — Polished Next.js frontend with Framer Motion animations
+- **Real-Time Processing** — SSE streaming for both chat responses and ingestion progress
+- **JWT Authentication** — Secure access with access + refresh tokens
+- **Dark Mode UI** — Polished interface with Framer Motion animations
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
+| Frontend | Next.js 15, TypeScript, Tailwind CSS v4 |
 | Backend | FastAPI, Python 3.12 |
-| Frontend | Next.js 15, TypeScript, Tailwind CSS |
-| Database | PostgreSQL 16 |
-| Vector DB | Qdrant |
-| Cache | Redis 7 |
-| LLM | Groq (Llama 3.3 70B) — free |
-| Embeddings | sentence-transformers (all-MiniLM-L6-v2) |
-| Reranker | cross-encoder/ms-marco-MiniLM-L-6-v2 |
-| Storage | MinIO / S3 / Cloudflare R2 |
-| Auth | JWT (access + refresh tokens) |
+| Database | PostgreSQL (Render) |
+| Vector DB | Qdrant Cloud |
+| Cache/Pubsub | Redis |
+| LLM | Groq API (Llama 3.3 70B) |
+| Embeddings | HuggingFace Inference API (all-MiniLM-L6-v2) |
+| Auth | JWT (bcrypt + python-jose) |
+| Hosting | Vercel (frontend) + Render (backend) |
 
-## Quick Start
+## Architecture
 
-### Prerequisites
-- Docker & Docker Compose
-- Node.js 18+ (for local frontend dev)
-- Python 3.11+ (for local backend dev)
-
-### Option 1: Docker (Full Stack)
-```bash
-# Clone
-git clone https://github.com/NikhilNWakode/DocMind.git
-cd DocMind
-
-# Configure
-cp backend/.env.example backend/.env
-# Edit backend/.env and add your Groq API key (free: https://console.groq.com/keys)
-
-# Run
-docker compose up -d
+```
+Next.js Frontend (Vercel)
+  |
+  v
+FastAPI Backend (Render)
+  ├── JWT Auth + Rate Limiting (Redis)
+  ├── SSE Streaming (chat + ingestion progress)
+  |
+  ├── Document Ingestion Pipeline
+  |   Upload -> Extract (PyMuPDF) -> Chunk (tiktoken) -> Embed (HF API) -> Index (Qdrant)
+  |
+  ├── RAG Query Pipeline
+  |   Embed query -> Vector search (filtered by document_id) -> Build context -> Stream LLM response
+  |
+  └── Conversation History (PostgreSQL)
 ```
 
-### Option 2: Local Development
-```bash
-# 1. Start infrastructure
-docker compose -f docker-compose.dev.yml up -d
+## Local Development
 
-# 2. Backend
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- PostgreSQL, Redis, Qdrant (or use Docker)
+
+### Backend
+```bash
 cd backend
+python -m venv venv && source venv/bin/activate  # or venv\Scripts\activate on Windows
 pip install -e ".[dev]"
+
+# Configure
+cp .env.example .env
+# Edit .env: set DATABASE_URL, REDIS_URL, QDRANT_URL, LLM_API_KEY (Groq), HF_TOKEN
+
 alembic upgrade head
 uvicorn app.main:app --reload
+```
 
-# 3. Frontend (new terminal)
+### Frontend
+```bash
 cd frontend
 npm install
+# Set NEXT_PUBLIC_API_URL=http://localhost:8000 in .env.local
 npm run dev
 ```
 
@@ -72,35 +88,60 @@ npm run dev
 | Frontend | http://localhost:3000 |
 | Backend API | http://localhost:8000 |
 | API Docs | http://localhost:8000/docs |
-| MinIO Console | http://localhost:9001 |
-
-## Architecture
-
-```
-Client (Next.js)
-  |
-  v
-FastAPI Backend
-  ├── JWT Auth
-  ├── Rate Limiting (slowapi + Redis)
-  ├── SSE Streaming (chat + ingestion progress)
-  |
-  ├── Document Ingestion Pipeline
-  |   Extract -> Chunk -> Embed -> Index (Qdrant)
-  |
-  ├── Hybrid Retrieval
-  |   Dense (Qdrant) + BM25 -> RRF Fusion -> Cross-Encoder Rerank
-  |
-  ├── Semantic Cache (Redis)
-  └── Conversation Memory (summarization)
-```
 
 ## Deployment
 
-Deploy to Render using the included `render.yaml` blueprint:
+### Backend (Render)
+1. Create a **Web Service** on [Render](https://render.com) pointing to the repo
+2. Set root directory to `backend`
+3. Build command: `pip install .`
+4. Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+5. Add environment variables: `DATABASE_URL`, `REDIS_URL`, `QDRANT_URL`, `QDRANT_API_KEY`, `LLM_API_KEY`, `HF_TOKEN`, `JWT_SECRET_KEY`, `CORS_ORIGINS`, `APP_ENV=production`
 
-1. Push to GitHub
-2. Go to [Render Dashboard](https://dashboard.render.com) → New → Blueprint
-3. Connect your repo — Render auto-detects `render.yaml`
-4. Fill in environment variables when prompted
+Migrations run automatically on startup.
 
+### Frontend (Vercel)
+1. Import repo on [Vercel](https://vercel.com)
+2. Set root directory to `frontend`
+3. Add env var: `NEXT_PUBLIC_API_URL=https://your-backend.onrender.com`
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection string |
+| `QDRANT_URL` | Qdrant Cloud endpoint |
+| `QDRANT_API_KEY` | Qdrant Cloud API key |
+| `LLM_API_KEY` | Groq API key ([free](https://console.groq.com/keys)) |
+| `HF_TOKEN` | HuggingFace token ([free](https://huggingface.co/settings/tokens)) |
+| `JWT_SECRET_KEY` | Random secret for JWT signing |
+| `CORS_ORIGINS` | Allowed frontend origins (comma-separated or `*`) |
+| `APP_ENV` | `development` or `production` |
+| `NEXT_PUBLIC_API_URL` | Backend URL (frontend build-time) |
+
+## Project Structure
+
+```
+backend/
+  app/
+    api/v1/          # Route handlers (auth, chat, documents, health, ingestion, workspaces)
+    models/          # SQLAlchemy models (user, document, conversation, workspace)
+    schemas/         # Pydantic request/response schemas
+    services/        # Business logic (chat, document, embedding, extraction, chunking, vector store)
+    tasks/           # Background tasks (document ingestion)
+    infrastructure/  # DB, Redis, Qdrant, S3, LLM clients
+    config.py        # Settings from env vars
+    main.py          # FastAPI app factory
+
+frontend/
+  src/
+    app/             # Next.js pages (landing, login, register, dashboard)
+    components/      # UI components (chat, landing, ui primitives)
+    stores/          # Zustand stores (auth, chat)
+    lib/             # API client, utilities
+```
+
+## License
+
+MIT
