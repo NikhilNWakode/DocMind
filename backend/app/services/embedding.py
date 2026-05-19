@@ -34,7 +34,7 @@ class EmbeddingService:
 
     def __init__(self):
         self.dimension = settings.embedding_dimension
-        self._api_url = f"https://api-inference.huggingface.co/models/sentence-transformers/{settings.embedding_model}"
+        self._api_url = f"https://router.huggingface.co/hf-inference/models/sentence-transformers/{settings.embedding_model}"
 
     def embed_texts(self, texts: list[str]) -> list[np.ndarray]:
         """Generate embeddings for a list of texts."""
@@ -67,10 +67,13 @@ class EmbeddingService:
 
     def _embed_via_api(self, texts: list[str]) -> list[np.ndarray]:
         """Use HuggingFace Inference API for embeddings."""
-        headers = {"Content-Type": "application/json"}
         hf_token = os.getenv("HF_TOKEN", "")
-        if hf_token:
-            headers["Authorization"] = f"Bearer {hf_token}"
+        if not hf_token:
+            raise RuntimeError("HF_TOKEN environment variable is required for embeddings API")
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {hf_token}",
+        }
 
         all_embeddings = []
         for i in range(0, len(texts), 32):
