@@ -17,7 +17,7 @@ export default function Home() {
   useEffect(() => {
     if (!isLoading) {
       if (isAuthenticated) {
-        router.push("/workspaces");
+        router.push("/dashboard");
       } else {
         setChecked(true);
       }
