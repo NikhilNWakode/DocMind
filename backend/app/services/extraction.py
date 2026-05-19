@@ -9,6 +9,11 @@ import structlog
 logger = structlog.get_logger()
 
 
+def _sanitize_text(text: str) -> str:
+    """Remove null bytes and other characters PostgreSQL rejects."""
+    return text.replace("\x00", "")
+
+
 @dataclass
 class PageContent:
     """Represents extracted text from a single page."""
@@ -58,7 +63,7 @@ class TextExtractor:
 
         for page_num in range(total_pages):
             page = doc[page_num]
-            text = page.get_text("text")
+            text = _sanitize_text(page.get_text("text"))
 
             if text.strip():
                 pages.append(PageContent(page_number=page_num + 1, text=text.strip()))
@@ -90,7 +95,7 @@ class TextExtractor:
     def _extract_text(self, file_path: str) -> ExtractedDocument:
         """Extract text from plain text files."""
         path = Path(file_path)
-        text = path.read_text(encoding="utf-8")
+        text = _sanitize_text(path.read_text(encoding="utf-8"))
 
         return ExtractedDocument(
             pages=[PageContent(page_number=1, text=text)],
@@ -150,7 +155,7 @@ class TextExtractor:
             from PIL import Image
 
             image = Image.open(file_path)
-            text = pytesseract.image_to_string(image)
+            text = _sanitize_text(pytesseract.image_to_string(image))
 
             if not text.strip():
                 logger.warning("ocr_no_text_found", file_path=file_path)
@@ -182,7 +187,7 @@ class TextExtractor:
             pix = page.get_pixmap(dpi=200)
             img_data = pix.tobytes("png")
             image = Image.open(io.BytesIO(img_data))
-            text = pytesseract.image_to_string(image)
+            text = _sanitize_text(pytesseract.image_to_string(image))
             return text
 
         except ImportError:
