@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
 
 from app.api.deps import get_current_user, get_document_service
 from app.models.user import User
@@ -90,37 +90,3 @@ async def delete_document(
     await doc_service.delete_document(document_id)
 
 
-@router.post("/{document_id}/summarize", status_code=202)
-async def summarize_document(
-    document_id: uuid.UUID,
-    background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user),
-    doc_service: DocumentService = Depends(get_document_service),
-):
-    """Trigger AI summarization of a document."""
-    doc = await doc_service.get_document(document_id)
-    if doc.status != "indexed":
-        raise HTTPException(status_code=400, detail="Document must be indexed before summarization")
-
-    from app.tasks.summarization import summarize_document as summarize_doc
-    background_tasks.add_task(summarize_doc, str(document_id))
-
-    return {"status": "queued"}
-
-
-@router.get("/{document_id}/summary")
-async def get_document_summary(
-    document_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    doc_service: DocumentService = Depends(get_document_service),
-):
-    """Get the AI-generated summary for a document."""
-    summary = await doc_service.get_document_summary(document_id)
-    doc = await doc_service.get_document(document_id)
-
-    return {
-        "document_id": str(document_id),
-        "title": doc.title,
-        "summary": summary,
-        "has_summary": summary is not None,
-    }

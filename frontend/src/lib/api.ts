@@ -118,10 +118,6 @@ class ApiClient {
     return this.request<{ workspaces: Workspace[]; total: number }>("/workspaces");
   }
 
-  async getWorkspace(id: string) {
-    return this.request<Workspace>(`/workspaces/${id}`);
-  }
-
   // Documents
   async uploadDocument(workspaceId: string, file: File) {
     const formData = new FormData();
@@ -145,16 +141,6 @@ class ApiClient {
 
   async deleteDocument(id: string) {
     return this.request(`/documents/${id}`, { method: "DELETE" });
-  }
-
-  async getDocumentSummary(docId: string) {
-    return this.request<DocumentSummary>(`/documents/${docId}/summary`);
-  }
-
-  async triggerSummarize(docId: string) {
-    return this.request<{ task_id: string; status: string }>(`/documents/${docId}/summarize`, {
-      method: "POST",
-    });
   }
 
   // Ingestion progress (SSE)
@@ -295,9 +281,6 @@ class ApiClient {
             case "metadata":
               onMetadata?.(data);
               break;
-            case "cache_hit":
-              // Cache hit indicator — response will stream from cache
-              break;
             case "done":
               onDone?.();
               break;
@@ -329,13 +312,6 @@ class ApiClient {
     return this.request(`/chat/conversations/${id}`, { method: "DELETE" });
   }
 
-  // Search
-  async search(query: string, workspaceId: string, topK = 10, useReranking = true) {
-    return this.request<SearchResponse>("/search", {
-      method: "POST",
-      body: { query, workspace_id: workspaceId, top_k: topK, use_reranking: useReranking },
-    });
-  }
 }
 
 export class ApiError extends Error {
@@ -394,13 +370,6 @@ export interface IngestionProgress {
   message: string;
 }
 
-export interface DocumentSummary {
-  document_id: string;
-  title: string;
-  summary: string | null;
-  has_summary: boolean;
-}
-
 export interface Citation {
   document_title: string;
   document_id: string;
@@ -413,7 +382,6 @@ export interface ChatMetadata {
   model: string;
   latency_ms: number;
   chunks_used: number;
-  cache_hit?: boolean;
 }
 
 export interface ChatMessage {
@@ -433,23 +401,6 @@ export interface Conversation {
   created_at: string;
   updated_at: string;
   message_count: number;
-}
-
-export interface SearchResult {
-  chunk_id: string;
-  content: string;
-  document_title: string;
-  document_id: string;
-  page_number: number | null;
-  relevance_score: number;
-  rerank_score: number | null;
-}
-
-export interface SearchResponse {
-  results: SearchResult[];
-  total_results: number;
-  query: string;
-  retrieval_method: string;
 }
 
 export const api = new ApiClient(API_URL);

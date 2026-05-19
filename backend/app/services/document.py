@@ -106,15 +106,6 @@ class DocumentService:
         )
         await self.db.commit()
 
-        # Invalidate semantic cache for this workspace (new document = stale answers)
-        if self.redis and settings.enable_semantic_cache:
-            try:
-                from app.services.semantic_cache import SemanticCache
-                cache = SemanticCache(self.redis)
-                await cache.invalidate_workspace(str(workspace_id))
-            except Exception as e:
-                logger.warning("cache_invalidation_failed", error=str(e)[:100])
-
         logger.info(
             "document_uploaded",
             document_id=str(doc.id),
@@ -277,27 +268,11 @@ class DocumentService:
             except OSError:
                 pass
 
-        # Invalidate semantic cache
-        if self.redis and settings.enable_semantic_cache:
-            try:
-                from app.services.semantic_cache import SemanticCache
-                cache = SemanticCache(self.redis)
-                await cache.invalidate_workspace(str(doc.workspace_id))
-            except Exception as e:
-                logger.warning("cache_invalidation_failed", error=str(e)[:100])
-
         # Delete from database (cascades to chunks)
         await self.repo.delete(doc)
         await self.db.commit()
 
         logger.info("document_deleted", document_id=str(document_id))
-
-    async def get_document_summary(self, document_id: uuid.UUID) -> str | None:
-        """Get the AI-generated summary for a document."""
-        doc = await self.repo.get_by_id(document_id)
-        if not doc:
-            raise NotFoundError("Document", str(document_id))
-        return (doc.metadata_ or {}).get("summary")
 
     async def _resolve_file_path(self, file_path: str, file_type: str) -> str:
         """Resolve S3 paths to local temp files for processing."""

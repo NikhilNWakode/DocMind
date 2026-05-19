@@ -51,7 +51,6 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = "https://api.groq.com/openai/v1"
     llm_model: str = "llama-3.3-70b-versatile"
-    llm_fast_model: str = "llama-3.1-8b-instant"  # for summarization, lightweight tasks
 
     # Embeddings
     embedding_model: str = "all-MiniLM-L6-v2"
@@ -61,16 +60,6 @@ class Settings(BaseSettings):
     chunk_size: int = 500
     chunk_overlap: int = 50
     retrieval_top_k: int = 5
-    rerank_top_k: int = 3
-    hybrid_alpha: float = 0.7  # weight for dense vs sparse (1.0 = pure dense)
-    enable_reranking: bool = False
-    enable_hybrid_search: bool = False
-    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-
-    # Semantic Cache
-    cache_ttl_seconds: int = 3600
-    cache_similarity_threshold: float = 0.95
-    enable_semantic_cache: bool = False
 
     # Rate Limiting
     rate_limit_per_minute: int = 30
@@ -99,7 +88,6 @@ class Settings(BaseSettings):
 
     # Conversation Memory
     max_conversation_turns: int = 6
-    enable_conversation_summary: bool = False
 
 
 @lru_cache

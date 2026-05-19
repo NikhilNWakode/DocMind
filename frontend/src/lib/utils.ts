@@ -5,12 +5,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();
@@ -41,24 +35,4 @@ export function getFileTypeIcon(fileType: string): string {
     default:
       return "📎";
   }
-}
-
-export function getStatusColor(status: string): string {
-  switch (status) {
-    case "indexed":
-      return "text-success";
-    case "processing":
-      return "text-warning";
-    case "failed":
-      return "text-error";
-    case "pending":
-      return "text-text-muted";
-    default:
-      return "text-text-secondary";
-  }
-}
-
-export function truncate(str: string, maxLength: number): string {
-  if (str.length <= maxLength) return str;
-  return str.slice(0, maxLength) + "...";
 }

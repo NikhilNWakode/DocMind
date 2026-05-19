@@ -13,7 +13,6 @@ interface ChatStore {
   sendMessage: (query: string, workspaceId: string, documentId?: string) => Promise<void>;
   loadConversation: (conversationId: string) => Promise<void>;
   clearChat: () => void;
-  setConversationId: (id: string | null) => void;
   setDocumentId: (id: string | null) => void;
 }
 
@@ -126,6 +125,5 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     });
   },
 
-  setConversationId: (id) => set({ conversationId: id }),
   setDocumentId: (id) => set({ documentId: id }),
 }));

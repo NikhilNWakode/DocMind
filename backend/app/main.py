@@ -42,12 +42,6 @@ async def lifespan(app: FastAPI):
         "starting_application",
         app_name=settings.app_name,
         env=settings.app_env,
-        features={
-            "hybrid_search": settings.enable_hybrid_search,
-            "reranking": settings.enable_reranking,
-            "semantic_cache": settings.enable_semantic_cache,
-            "conversation_summary": settings.enable_conversation_summary,
-        },
     )
     yield
     # Cleanup
