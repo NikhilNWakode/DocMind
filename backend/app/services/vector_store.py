@@ -38,9 +38,31 @@ class VectorStoreService:
                         distance=models.Distance.COSINE,
                     ),
                 )
+                # Create payload indexes for filtered search
+                self.client.create_payload_index(
+                    collection_name=collection_name,
+                    field_name="document_id",
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
                 logger.info("collection_created", collection=collection_name)
             else:
                 raise
+
+    def ensure_payload_index(self, workspace_id: str) -> None:
+        """Ensure payload indexes exist on an existing collection."""
+        collection_name = self._collection_name(workspace_id)
+        try:
+            collection_info = self.client.get_collection(collection_name)
+            existing_indexes = collection_info.payload_schema or {}
+            if "document_id" not in existing_indexes:
+                self.client.create_payload_index(
+                    collection_name=collection_name,
+                    field_name="document_id",
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
+                logger.info("payload_index_created", collection=collection_name, field="document_id")
+        except Exception as e:
+            logger.warning("payload_index_check_failed", error=str(e)[:200])
 
     def index_chunks(
         self,
@@ -100,6 +122,8 @@ class VectorStoreService:
         # Build filter if document_ids specified
         query_filter = None
         if document_ids:
+            # Ensure the payload index exists before filtering
+            self.ensure_payload_index(workspace_id)
             query_filter = models.Filter(
                 must=[
                     models.FieldCondition(

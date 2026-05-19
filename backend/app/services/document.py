@@ -61,7 +61,6 @@ class DocumentService:
         else:
             self.storage = None
             self.use_s3 = False
-            logger.info("using_local_file_storage")
 
     async def upload_document(
         self,
